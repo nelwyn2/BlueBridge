@@ -139,9 +139,11 @@ open class VehicleWidgetProvider : AppWidgetProvider() {
             views.setOnClickPendingIntent(R.id.widget_root, openPendingIntent)
             views.setTextViewText(R.id.widget_vehicle_name, snapshot.vehicleName.ifBlank { "BlueBridge" })
             views.setTextViewText(R.id.widget_lock_status, lockStatus(snapshot))
-            setBatteryViews(views, snapshot, includeBatteryPrefix = true)
-            views.setTextViewText(R.id.widget_charging, snapshot.chargingLabel.ifBlank { snapshot.message })
-            views.setTextViewText(R.id.widget_updated, updatedStatus(snapshot))
+            setBatteryViews(views, snapshot, includeBatteryPrefix = false)
+            views.setTextViewText(R.id.widget_battery_meta, compactUpdatedStatus(snapshot))
+            views.setTextViewText(R.id.widget_battery_substatus, compactBatterySubstatus(snapshot))
+            views.setTextViewText(R.id.widget_charging, compactChargeStatus(snapshot))
+            setFullDetailViews(views, snapshot)
             views.setOnClickPendingIntent(R.id.widget_refresh_button, widgetPendingIntent(context, ACTION_REFRESH, 10))
             views.setOnClickPendingIntent(R.id.widget_lock_button, widgetPendingIntent(context, ACTION_LOCK, 11))
             views.setOnClickPendingIntent(R.id.widget_unlock_button, widgetPendingIntent(context, ACTION_UNLOCK, 12))
@@ -176,10 +178,10 @@ open class VehicleWidgetProvider : AppWidgetProvider() {
         ): RemoteViews {
             views.setOnClickPendingIntent(R.id.widget_root, openPendingIntent)
             views.setTextViewText(R.id.widget_vehicle_name, snapshot.vehicleName.ifBlank { "BlueBridge" })
-            setBatteryViews(views, snapshot, includeBatteryPrefix = true)
+            setBatteryViews(views, snapshot, includeBatteryPrefix = false)
             views.setTextViewText(R.id.widget_lock_status, lockStatus(snapshot))
-            views.setTextViewText(R.id.widget_charging, snapshot.chargingLabel.ifBlank { snapshot.message })
-            views.setTextViewText(R.id.widget_updated, updatedStatus(snapshot))
+            views.setTextViewText(R.id.widget_charging, compactChargeStatus(snapshot))
+            setFullDetailViews(views, snapshot)
             views.setOnClickPendingIntent(R.id.widget_refresh_button, widgetPendingIntent(context, ACTION_REFRESH, 31))
             views.setContentDescription(R.id.widget_refresh_button, "Refresh vehicle status")
             return views
@@ -221,6 +223,24 @@ open class VehicleWidgetProvider : AppWidgetProvider() {
             return views
         }
 
+
+        private fun compactUpdatedStatus(snapshot: WidgetVehicleSnapshot): String {
+            return if (snapshot.updatedAtMillis > 0L) {
+                "Updated ${formatWidgetTime(snapshot.updatedAtMillis)}"
+            } else {
+                "Updated —"
+            }
+        }
+
+        private fun compactBatterySubstatus(snapshot: WidgetVehicleSnapshot): String {
+            val chargeState = snapshot.chargingLabel.ifBlank { snapshot.message }.ifBlank { "Ready" }
+            val detail = snapshot.detailThree.ifBlank { snapshot.detailOne }.ifBlank { lockStatus(snapshot) }
+            return listOf(chargeState, detail)
+                .filter { it.isNotBlank() && it != "—" }
+                .joinToString(" · ")
+                .ifBlank { "Status —" }
+        }
+
         private fun setBatteryViews(views: RemoteViews, snapshot: WidgetVehicleSnapshot, includeBatteryPrefix: Boolean) {
             val batteryPercent = snapshot.batteryPercent?.coerceIn(0, 100)
             val batteryText = batteryPercent?.let { if (includeBatteryPrefix) "Battery $it%" else "$it%" }
@@ -232,6 +252,60 @@ open class VehicleWidgetProvider : AppWidgetProvider() {
                 R.id.widget_battery_progress,
                 batteryPercent?.let { "Vehicle battery $it percent" } ?: "Vehicle battery level unavailable"
             )
+        }
+
+        private fun setDetailViews(views: RemoteViews, snapshot: WidgetVehicleSnapshot) {
+            views.setTextViewText(R.id.widget_detail_one, snapshot.detailOne.ifBlank { "Doors —" })
+            views.setTextViewText(R.id.widget_detail_two, snapshot.detailTwo.ifBlank { "Climate —" })
+            views.setTextViewText(R.id.widget_detail_three, snapshot.detailThree.ifBlank { "Tires —" })
+        }
+
+        private fun setFullDetailViews(views: RemoteViews, snapshot: WidgetVehicleSnapshot) {
+            views.setTextViewText(R.id.widget_detail_one, compactOpeningStatus(snapshot))
+            views.setTextViewText(R.id.widget_detail_two, compactClimateStatus(snapshot))
+            views.setTextViewText(R.id.widget_detail_three, compactAlertStatus(snapshot))
+            views.setTextViewText(R.id.widget_detail_four, compactUpdatedStatus(snapshot))
+            views.setTextViewText(R.id.widget_updated, lockStatus(snapshot))
+        }
+
+        private fun compactChargeStatus(snapshot: WidgetVehicleSnapshot): String {
+            val value = snapshot.chargingLabel.ifBlank { snapshot.message }.ifBlank { "Ready" }
+            return when {
+                value.contains("charging", ignoreCase = true) -> value.replace("Charging · ", "Chg ").replace("Charging", "Charging")
+                value.contains("climate", ignoreCase = true) -> "Climate"
+                value.length > 16 -> value.take(15).trimEnd() + "…"
+                else -> value
+            }
+        }
+
+        private fun compactOpeningStatus(snapshot: WidgetVehicleSnapshot): String {
+            val value = snapshot.detailOne.ifBlank { "Closed" }
+            return when {
+                value == "Closed" -> "Closed"
+                value.startsWith("Open:") -> value.replace("Open: ", "Open ").replace(", ", "/").take(18)
+                value.length > 18 -> value.take(17).trimEnd() + "…"
+                else -> value
+            }
+        }
+
+        private fun compactClimateStatus(snapshot: WidgetVehicleSnapshot): String {
+            return when (snapshot.detailTwo.ifBlank { "Climate off" }) {
+                "Climate on" -> "Climate On"
+                "Climate off" -> "Climate Off"
+                "Vehicle on" -> "Vehicle On"
+                else -> snapshot.detailTwo.take(18)
+            }
+        }
+
+        private fun compactAlertStatus(snapshot: WidgetVehicleSnapshot): String {
+            val value = snapshot.detailThree.ifBlank { "No alerts" }
+            return when {
+                value == "No alerts" -> "No Alerts"
+                value == "Unplugged" -> "Unplugged"
+                value.contains("plugged", ignoreCase = true) -> value.replace(" fast", "")
+                value.length > 18 -> value.take(17).trimEnd() + "…"
+                else -> value
+            }
         }
 
         private fun lockStatus(snapshot: WidgetVehicleSnapshot): String = when (snapshot.doorsLocked) {
@@ -400,8 +474,39 @@ open class VehicleWidgetProvider : AppWidgetProvider() {
                 rangeMiles = rangeMiles,
                 chargingLabel = chargingLabel,
                 message = message,
+                detailOne = openingsLabel(status),
+                detailTwo = climateLabel(status),
+                detailThree = tireOrPlugLabel(status),
                 updatedAtMillis = System.currentTimeMillis()
             )
+        }
+
+        private fun openingsLabel(status: VehicleStatusData): String {
+            val openItems = buildList {
+                if (status.doorOpenStatus?.anyOpen == true) add("Door")
+                if (status.trunkOpenStatus) add("Trunk")
+                if (status.hoodOpenStatus) add("Hood")
+                if (status.windowOpenStatus?.anyOpen == true) add("Window")
+            }
+            return if (openItems.isEmpty()) "Closed" else "Open: ${openItems.joinToString(", ")}"
+        }
+
+        private fun climateLabel(status: VehicleStatusData): String {
+            return when {
+                status.airCtrlOn -> "Climate on"
+                status.ignitionOn || status.engineStatus -> "Vehicle on"
+                else -> "Climate off"
+            }
+        }
+
+        private fun tireOrPlugLabel(status: VehicleStatusData): String {
+            return when {
+                status.tirePressureLamp?.anyLow == true -> "Tire alert"
+                status.evStatus?.batteryPlugin != null && status.evStatus.batteryPlugin != 0 -> status.evStatus.plugStatusLabel
+                status.evStatus != null -> "Unplugged"
+                status.smartKeyBatteryWarning -> "Key battery low"
+                else -> "No alerts"
+            }
         }
 
         private suspend fun recordWidgetHistory(

@@ -5,7 +5,7 @@
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:background="@drawable/widget_background"
-    android:padding="12dp">
+    android:padding="8dp">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -13,163 +13,343 @@
         android:orientation="horizontal"
         android:gravity="center_vertical">
 
-        <LinearLayout
+        <TextView
+            android:id="@+id/widget_vehicle_name"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:orientation="vertical">
-
-            <TextView
-                android:id="@+id/widget_vehicle_name"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="BlueBridge"
-                android:textColor="#FFFFFF"
-                android:textSize="14sp"
-                android:textStyle="bold"
-                android:maxLines="1"
-                android:ellipsize="end" />
-
-            <TextView
-                android:id="@+id/widget_updated"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Open app to refresh"
-                android:textColor="#99FFFFFF"
-                android:textSize="11sp"
-                android:layout_marginTop="2dp"
-                android:maxLines="1"
-                android:ellipsize="end" />
-        </LinearLayout>
+            android:text="BlueBridge"
+            android:textColor="#FFFFFF"
+            android:textSize="13sp"
+            android:textStyle="bold"
+            android:maxLines="1"
+            android:ellipsize="end"
+            android:includeFontPadding="false" />
 
         <TextView
             android:id="@+id/widget_lock_status"
             android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
+            android:layout_height="20dp"
+            android:background="@drawable/widget_battery_panel_background"
+            android:gravity="center"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
             android:text="—"
             android:textColor="#FFB000"
-            android:textSize="12sp"
-            android:textStyle="bold" />
+            android:textSize="10sp"
+            android:textStyle="bold"
+            android:maxLines="1"
+            android:includeFontPadding="false" />
     </LinearLayout>
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center_vertical"
-        android:layout_marginTop="8dp">
-
-        <TextView
-            android:id="@+id/widget_battery"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="Battery —"
-            android:textColor="#FFFFFF"
-            android:textSize="20sp"
-            android:textStyle="bold" />
-
-        <TextView
-            android:id="@+id/widget_range"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Range —"
-            android:textColor="#99FFFFFF"
-            android:textSize="12sp" />
-    </LinearLayout>
-
-
-    <ProgressBar
-        android:id="@+id/widget_battery_progress"
-        style="?android:attr/progressBarStyleHorizontal"
-        android:layout_width="match_parent"
-        android:layout_height="6dp"
-        android:layout_marginTop="4dp"
-        android:indeterminate="true"
-        android:max="100"
-        android:progress="0" />
-
-    <TextView
-        android:id="@+id/widget_charging"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Tap to open app"
-        android:textColor="#AFC7FF"
-        android:textSize="12sp"
-        android:layout_marginTop="2dp"
-        android:maxLines="1"
-        android:ellipsize="end" />
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
+        android:layout_marginTop="5dp"
+        android:orientation="vertical">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="62dp"
+            android:orientation="horizontal"
+            android:background="@drawable/widget_battery_panel_background"
+            android:gravity="center_vertical"
+            android:padding="7dp">
+
+            <LinearLayout
+                android:layout_width="74dp"
+                android:layout_height="match_parent"
+                android:orientation="vertical"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:id="@+id/widget_battery_label"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Battery"
+                    android:textColor="#99FFFFFF"
+                    android:textSize="8sp"
+                    android:textStyle="bold"
+                    android:maxLines="1"
+                    android:ellipsize="end"
+                    android:includeFontPadding="false" />
+
+                <TextView
+                    android:id="@+id/widget_battery"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="—"
+                    android:textColor="#FFFFFF"
+                    android:textSize="24sp"
+                    android:textStyle="bold"
+                    android:maxLines="1"
+                    android:ellipsize="end"
+                    android:includeFontPadding="false" />
+            </LinearLayout>
+
+            <TextView android:layout_width="7dp" android:layout_height="1dp" android:text="" />
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:gravity="center_vertical">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+
+                    <TextView
+                        android:id="@+id/widget_range"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Range —"
+                        android:textColor="#C8D7FF"
+                        android:textSize="10sp"
+                        android:textStyle="bold"
+                        android:maxLines="1"
+                        android:ellipsize="end"
+                        android:includeFontPadding="false" />
+
+                    <TextView
+                        android:id="@+id/widget_battery_meta"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:gravity="end"
+                        android:text="Updated —"
+                        android:textColor="#99FFFFFF"
+                        android:textSize="8sp"
+                        android:maxLines="1"
+                        android:ellipsize="end"
+                        android:includeFontPadding="false" />
+                </LinearLayout>
+
+                <ProgressBar
+                    android:id="@+id/widget_battery_progress"
+                    style="?android:attr/progressBarStyleHorizontal"
+                    android:layout_width="match_parent"
+                    android:layout_height="7dp"
+                    android:layout_marginTop="5dp"
+                    android:indeterminate="true"
+                    android:max="100"
+                    android:progress="0"
+                    android:progressDrawable="@drawable/widget_battery_progress" />
+
+                <TextView
+                    android:id="@+id/widget_battery_substatus"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="Ready"
+                    android:textColor="#E8EDF5"
+                    android:textSize="9sp"
+                    android:maxLines="1"
+                    android:ellipsize="end"
+                    android:includeFontPadding="false" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:layout_marginTop="5dp"
+            android:orientation="vertical">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:id="@+id/widget_charging"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:background="@drawable/widget_battery_panel_background"
+                    android:gravity="center_vertical"
+                    android:paddingStart="7dp"
+                    android:paddingEnd="7dp"
+                    android:text="Ready"
+                    android:textColor="#AFC7FF"
+                    android:textSize="9sp"
+                    android:textStyle="bold"
+                    android:maxLines="1"
+                    android:ellipsize="end"
+                    android:includeFontPadding="false" />
+
+                <TextView android:layout_width="5dp" android:layout_height="1dp" android:text="" />
+
+                <TextView
+                    android:id="@+id/widget_detail_one"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:background="@drawable/widget_battery_panel_background"
+                    android:gravity="center_vertical"
+                    android:paddingStart="7dp"
+                    android:paddingEnd="7dp"
+                    android:text="Closed"
+                    android:textColor="#E8EDF5"
+                    android:textSize="9sp"
+                    android:maxLines="1"
+                    android:ellipsize="end"
+                    android:includeFontPadding="false" />
+
+                <TextView android:layout_width="5dp" android:layout_height="1dp" android:text="" />
+
+                <TextView
+                    android:id="@+id/widget_detail_two"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:background="@drawable/widget_battery_panel_background"
+                    android:gravity="center_vertical"
+                    android:paddingStart="7dp"
+                    android:paddingEnd="7dp"
+                    android:text="Climate"
+                    android:textColor="#E8EDF5"
+                    android:textSize="9sp"
+                    android:maxLines="1"
+                    android:ellipsize="end"
+                    android:includeFontPadding="false" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:layout_marginTop="5dp"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:id="@+id/widget_detail_three"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:background="@drawable/widget_battery_panel_background"
+                    android:gravity="center_vertical"
+                    android:paddingStart="7dp"
+                    android:paddingEnd="7dp"
+                    android:text="Alerts"
+                    android:textColor="#E8EDF5"
+                    android:textSize="9sp"
+                    android:maxLines="1"
+                    android:ellipsize="end"
+                    android:includeFontPadding="false" />
+
+                <TextView android:layout_width="5dp" android:layout_height="1dp" android:text="" />
+
+                <TextView
+                    android:id="@+id/widget_detail_four"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:background="@drawable/widget_battery_panel_background"
+                    android:gravity="center_vertical"
+                    android:paddingStart="7dp"
+                    android:paddingEnd="7dp"
+                    android:text="Updated"
+                    android:textColor="#99FFFFFF"
+                    android:textSize="9sp"
+                    android:maxLines="1"
+                    android:ellipsize="end"
+                    android:includeFontPadding="false" />
+
+                <TextView android:layout_width="5dp" android:layout_height="1dp" android:text="" />
+
+                <TextView
+                    android:id="@+id/widget_updated"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:background="@drawable/widget_battery_panel_background"
+                    android:gravity="center_vertical"
+                    android:paddingStart="7dp"
+                    android:paddingEnd="7dp"
+                    android:text="Open app"
+                    android:textColor="#99FFFFFF"
+                    android:textSize="9sp"
+                    android:maxLines="1"
+                    android:ellipsize="end"
+                    android:includeFontPadding="false" />
+            </LinearLayout>
+        </LinearLayout>
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="bottom"
-        android:layout_marginTop="8dp">
+        android:layout_marginTop="5dp">
 
         <TextView
             android:id="@+id/widget_refresh_button"
             android:layout_width="0dp"
-            android:layout_height="36dp"
+            android:layout_height="28dp"
             android:layout_weight="1"
             android:background="@drawable/widget_action_background"
             android:gravity="center"
             android:text="Refresh"
             android:textColor="#FFFFFF"
-            android:textSize="11sp"
-            android:textStyle="bold" />
+            android:textSize="10sp"
+            android:textStyle="bold"
+            android:maxLines="1"
+            android:includeFontPadding="false" />
 
-        <TextView
-            android:layout_width="6dp"
-            android:layout_height="1dp"
-            android:text="" />
+        <TextView android:layout_width="5dp" android:layout_height="1dp" android:text="" />
 
         <TextView
             android:id="@+id/widget_lock_button"
             android:layout_width="0dp"
-            android:layout_height="36dp"
+            android:layout_height="28dp"
             android:layout_weight="1"
             android:background="@drawable/widget_action_background"
             android:gravity="center"
             android:text="Lock"
             android:textColor="#FFFFFF"
-            android:textSize="11sp"
-            android:textStyle="bold" />
+            android:textSize="10sp"
+            android:textStyle="bold"
+            android:maxLines="1"
+            android:includeFontPadding="false" />
 
-        <TextView
-            android:layout_width="6dp"
-            android:layout_height="1dp"
-            android:text="" />
+        <TextView android:layout_width="5dp" android:layout_height="1dp" android:text="" />
 
         <TextView
             android:id="@+id/widget_unlock_button"
             android:layout_width="0dp"
-            android:layout_height="36dp"
+            android:layout_height="28dp"
             android:layout_weight="1"
             android:background="@drawable/widget_action_background"
             android:gravity="center"
             android:text="Unlock"
             android:textColor="#FFFFFF"
-            android:textSize="11sp"
-            android:textStyle="bold" />
+            android:textSize="10sp"
+            android:textStyle="bold"
+            android:maxLines="1"
+            android:includeFontPadding="false" />
 
-        <TextView
-            android:layout_width="6dp"
-            android:layout_height="1dp"
-            android:text="" />
+        <TextView android:layout_width="5dp" android:layout_height="1dp" android:text="" />
 
         <TextView
             android:id="@+id/widget_climate_button"
             android:layout_width="0dp"
-            android:layout_height="36dp"
+            android:layout_height="28dp"
             android:layout_weight="1"
             android:background="@drawable/widget_action_background"
             android:gravity="center"
             android:text="Climate"
             android:textColor="#FFFFFF"
-            android:textSize="11sp"
-            android:textStyle="bold" />
+            android:textSize="10sp"
+            android:textStyle="bold"
+            android:maxLines="1"
+            android:includeFontPadding="false" />
     </LinearLayout>
-
 </LinearLayout>

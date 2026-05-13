@@ -640,6 +640,9 @@ data class WidgetVehicleSnapshot(
     val rangeMiles: Int? = null,
     val chargingLabel: String = "Open app to refresh",
     val message: String = "Tap to open app",
+    val detailOne: String = "Doors —",
+    val detailTwo: String = "Climate —",
+    val detailThree: String = "Tires —",
     val updatedAtMillis: Long = 0L
 )
 

@@ -615,10 +615,41 @@ class VehicleViewModel @Inject constructor(
                 rangeMiles = rangeMiles,
                 chargingLabel = chargingLabel,
                 message = message,
+                detailOne = openingsLabel(status),
+                detailTwo = climateLabel(status),
+                detailThree = tireOrPlugLabel(status),
                 updatedAtMillis = System.currentTimeMillis()
             )
         )
         VehicleWidgetProvider.refreshAll(appContext)
+    }
+
+    private fun openingsLabel(status: VehicleStatusData): String {
+        val openItems = buildList {
+            if (status.doorOpenStatus?.anyOpen == true) add("Door")
+            if (status.trunkOpenStatus) add("Trunk")
+            if (status.hoodOpenStatus) add("Hood")
+            if (status.windowOpenStatus?.anyOpen == true) add("Window")
+        }
+        return if (openItems.isEmpty()) "Closed" else "Open: ${openItems.joinToString(", ")}"
+    }
+
+    private fun climateLabel(status: VehicleStatusData): String {
+        return when {
+            status.airCtrlOn -> "Climate on"
+            status.ignitionOn || status.engineStatus -> "Vehicle on"
+            else -> "Climate off"
+        }
+    }
+
+    private fun tireOrPlugLabel(status: VehicleStatusData): String {
+        return when {
+            status.tirePressureLamp?.anyLow == true -> "Tire alert"
+            status.evStatus?.batteryPlugin != null && status.evStatus.batteryPlugin != 0 -> status.evStatus.plugStatusLabel
+            status.evStatus != null -> "Unplugged"
+            status.smartKeyBatteryWarning -> "Key battery low"
+            else -> "No alerts"
+        }
     }
 
     fun clearError() {

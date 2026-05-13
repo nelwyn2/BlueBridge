@@ -56,6 +56,9 @@ class PreferencesManager @Inject constructor(
         val WIDGET_RANGE_MILES = intPreferencesKey("widget_range_miles")
         val WIDGET_CHARGING_LABEL = stringPreferencesKey("widget_charging_label")
         val WIDGET_MESSAGE = stringPreferencesKey("widget_message")
+        val WIDGET_DETAIL_ONE = stringPreferencesKey("widget_detail_one")
+        val WIDGET_DETAIL_TWO = stringPreferencesKey("widget_detail_two")
+        val WIDGET_DETAIL_THREE = stringPreferencesKey("widget_detail_three")
         val WIDGET_UPDATED_AT = longPreferencesKey("widget_updated_at")
         val CANADA_DEVICE_ID = stringPreferencesKey("canada_device_id")
     }
@@ -157,6 +160,9 @@ class PreferencesManager @Inject constructor(
                 rangeMiles = prefs[WIDGET_RANGE_MILES],
                 chargingLabel = prefs[WIDGET_CHARGING_LABEL] ?: "Open app to refresh",
                 message = prefs[WIDGET_MESSAGE] ?: "Tap to open app",
+                detailOne = prefs[WIDGET_DETAIL_ONE] ?: "Doors —",
+                detailTwo = prefs[WIDGET_DETAIL_TWO] ?: "Climate —",
+                detailThree = prefs[WIDGET_DETAIL_THREE] ?: "Tires —",
                 updatedAtMillis = prefs[WIDGET_UPDATED_AT] ?: 0L
             )
         }
@@ -287,6 +293,9 @@ class PreferencesManager @Inject constructor(
             snapshot.rangeMiles?.let { prefs[WIDGET_RANGE_MILES] = it.coerceAtLeast(0) } ?: prefs.remove(WIDGET_RANGE_MILES)
             prefs[WIDGET_CHARGING_LABEL] = snapshot.chargingLabel.ifBlank { "Status unavailable" }
             prefs[WIDGET_MESSAGE] = snapshot.message.ifBlank { "Tap to open app" }
+            prefs[WIDGET_DETAIL_ONE] = snapshot.detailOne.ifBlank { "Doors —" }
+            prefs[WIDGET_DETAIL_TWO] = snapshot.detailTwo.ifBlank { "Climate —" }
+            prefs[WIDGET_DETAIL_THREE] = snapshot.detailThree.ifBlank { "Tires —" }
             prefs[WIDGET_UPDATED_AT] = snapshot.updatedAtMillis.takeIf { it > 0L } ?: System.currentTimeMillis()
         }
     }
