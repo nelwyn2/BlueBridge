@@ -198,7 +198,7 @@ fun SettingsScreen(
             // ── About ─────────────────────────────────────────────────────────
             ControlSection(title = "About") {
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    SettingsInfoRow("Version", "1.0.0")
+                    SettingsInfoRow("Version", "1.01")
                     SettingsInfoRow("API", "Hyundai Bluelink / Kia Connect")
                     SettingsInfoRow("Credit", "Nelwyn99")
                     Spacer(Modifier.height(4.dp))
@@ -543,33 +543,36 @@ fun ColorPickerDialog(
     onSave: (String) -> Unit,
     onReset: () -> Unit
 ) {
-    val startColor = colorFromHexOrNull(overrides.valueFor(slot)) ?: defaultColorForSlot(theme, slot)
-    val startArgb = startColor.toArgb()
-    var red by remember(slot) { mutableStateOf((startArgb shr 16) and 0xFF) }
-    var green by remember(slot) { mutableStateOf((startArgb shr 8) and 0xFF) }
-    var blue by remember(slot) { mutableStateOf(startArgb and 0xFF) }
-    var hexInput by remember(slot) { mutableStateOf(colorToHex(startColor)) }
+    val initialColor = colorFromHexOrNull(overrides.valueFor(slot)) ?: defaultColorForSlot(theme, slot)
+
+    var previewColor by remember(slot) { mutableStateOf(initialColor) }
+    var hexInput by remember(slot) { mutableStateOf(colorToHex(initialColor)) }
     var hexError by remember(slot) { mutableStateOf(false) }
 
-    fun syncFromRgb() {
+    fun channelValue(shift: Int): Int = (previewColor.toArgb() shr shift) and 0xFF
+
+    fun updatePreviewColor(red: Int, green: Int, blue: Int) {
+        previewColor = Color(red = red / 255f, green = green / 255f, blue = blue / 255f)
         hexInput = "#%02X%02X%02X".format(red, green, blue)
         hexError = false
     }
 
-    fun syncFromHex(input: String) {
-        hexInput = input.uppercase()
-        val parsed = colorFromHexOrNull(input)
-        hexError = parsed == null
-        if (parsed != null) {
-            val argb = parsed.toArgb()
-            red = (argb shr 16) and 0xFF
-            green = (argb shr 8) and 0xFF
-            blue = argb and 0xFF
-            hexInput = colorToHex(parsed)
+    fun updateFromHex(input: String) {
+        val parsedColor = colorFromHexOrNull(input)
+        if (parsedColor == null) {
+            hexInput = input.uppercase()
+            hexError = true
+            return
         }
+
+        previewColor = parsedColor
+        hexInput = colorToHex(parsedColor)
+        hexError = false
     }
 
-    val preview = Color(red = red / 255f, green = green / 255f, blue = blue / 255f)
+    val red = channelValue(16)
+    val green = channelValue(8)
+    val blue = channelValue(0)
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -581,20 +584,20 @@ fun ColorPickerDialog(
                         .fillMaxWidth()
                         .height(74.dp)
                         .clip(RoundedCornerShape(18.dp))
-                        .background(preview),
+                        .background(previewColor),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
                         hexInput,
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = readableTextOn(preview)
+                        color = readableTextOn(previewColor)
                     )
                 }
 
                 OutlinedTextField(
                     value = hexInput,
-                    onValueChange = { syncFromHex(it) },
+                    onValueChange = { updateFromHex(it) },
                     label = { Text("Hex color") },
                     placeholder = { Text("#00D4FF") },
                     singleLine = true,
@@ -605,9 +608,9 @@ fun ColorPickerDialog(
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                RgbSliderRow("Red", red) { red = it; syncFromRgb() }
-                RgbSliderRow("Green", green) { green = it; syncFromRgb() }
-                RgbSliderRow("Blue", blue) { blue = it; syncFromRgb() }
+                RgbSliderRow("Red", red) { updatePreviewColor(it, green, blue) }
+                RgbSliderRow("Green", green) { updatePreviewColor(red, it, blue) }
+                RgbSliderRow("Blue", blue) { updatePreviewColor(red, green, it) }
             }
         },
         confirmButton = {
