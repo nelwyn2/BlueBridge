@@ -40,6 +40,7 @@ class PreferencesManager @Inject constructor(
         val REGION = stringPreferencesKey("region")
         val TEMPERATURE_UNIT = stringPreferencesKey("temp_unit")
         val BIOMETRIC_ENABLED = booleanPreferencesKey("biometric_enabled")
+        val LAST_BIOMETRIC_UNLOCK_AT = longPreferencesKey("last_biometric_unlock_at")
         val LAST_STATUS_REFRESH = longPreferencesKey("last_status_refresh")
         val DEFAULT_CLIMATE_TEMP = stringPreferencesKey("default_climate_temp")
         val VALET_MODE_ENABLED = booleanPreferencesKey("valet_mode_enabled")
@@ -110,6 +111,10 @@ class PreferencesManager @Inject constructor(
     val biometricEnabled: Flow<Boolean> = dataStore.data
         .catch { if (it is IOException) emit(emptyPreferences()) else throw it }
         .map { it[BIOMETRIC_ENABLED] ?: false }
+
+    val lastBiometricUnlockAt: Flow<Long> = dataStore.data
+        .catch { if (it is IOException) emit(emptyPreferences()) else throw it }
+        .map { it[LAST_BIOMETRIC_UNLOCK_AT] ?: 0L }
 
     val defaultClimateTemp: Flow<String> = dataStore.data
         .catch { if (it is IOException) emit(emptyPreferences()) else throw it }
@@ -221,7 +226,16 @@ class PreferencesManager @Inject constructor(
     }
 
     suspend fun setBiometricEnabled(enabled: Boolean) {
-        dataStore.edit { it[BIOMETRIC_ENABLED] = enabled }
+        dataStore.edit { prefs ->
+            prefs[BIOMETRIC_ENABLED] = enabled
+            if (!enabled) prefs.remove(LAST_BIOMETRIC_UNLOCK_AT)
+        }
+    }
+
+    suspend fun setLastBiometricUnlockAt(timestamp: Long) {
+        dataStore.edit { prefs ->
+            if (timestamp > 0L) prefs[LAST_BIOMETRIC_UNLOCK_AT] = timestamp else prefs.remove(LAST_BIOMETRIC_UNLOCK_AT)
+        }
     }
 
     suspend fun setDefaultClimateTemp(temp: String) {

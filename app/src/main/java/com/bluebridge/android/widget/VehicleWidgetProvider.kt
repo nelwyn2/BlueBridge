@@ -138,11 +138,11 @@ open class VehicleWidgetProvider : AppWidgetProvider() {
         ): RemoteViews {
             views.setOnClickPendingIntent(R.id.widget_root, openPendingIntent)
             views.setTextViewText(R.id.widget_vehicle_name, snapshot.vehicleName.ifBlank { "BlueBridge" })
-            views.setTextViewText(R.id.widget_lock_status, lockStatus(snapshot))
+            views.setTextViewText(R.id.widget_lock_status, verboseLockStatus(snapshot))
             setBatteryViews(views, snapshot, includeBatteryPrefix = false)
             views.setTextViewText(R.id.widget_battery_meta, compactUpdatedStatus(snapshot))
-            views.setTextViewText(R.id.widget_battery_substatus, compactBatterySubstatus(snapshot))
-            views.setTextViewText(R.id.widget_charging, compactChargeStatus(snapshot))
+            views.setTextViewText(R.id.widget_battery_substatus, verboseBatterySubstatus(snapshot))
+            views.setTextViewText(R.id.widget_charging, verboseChargeStatus(snapshot))
             setFullDetailViews(views, snapshot)
             views.setOnClickPendingIntent(R.id.widget_refresh_button, widgetPendingIntent(context, ACTION_REFRESH, 10))
             views.setOnClickPendingIntent(R.id.widget_lock_button, widgetPendingIntent(context, ACTION_LOCK, 11))
@@ -181,7 +181,7 @@ open class VehicleWidgetProvider : AppWidgetProvider() {
             setBatteryViews(views, snapshot, includeBatteryPrefix = false)
             views.setTextViewText(R.id.widget_lock_status, lockStatus(snapshot))
             views.setTextViewText(R.id.widget_charging, compactChargeStatus(snapshot))
-            setFullDetailViews(views, snapshot)
+            setCompactDetailViews(views, snapshot)
             views.setOnClickPendingIntent(R.id.widget_refresh_button, widgetPendingIntent(context, ACTION_REFRESH, 31))
             views.setContentDescription(R.id.widget_refresh_button, "Refresh vehicle status")
             return views
@@ -224,6 +224,26 @@ open class VehicleWidgetProvider : AppWidgetProvider() {
         }
 
 
+
+        private fun normalStatusText(value: String): String {
+            val trimmed = value.trim()
+            return if (trimmed.equals("Ready", ignoreCase = true)) "All Systems Normal" else trimmed
+        }
+
+        private fun isWidgetActionMessage(value: String): Boolean {
+            val text = value.trim()
+            return text.endsWith("…") ||
+                text.contains("from widget", ignoreCase = true) ||
+                text.contains("timed out", ignoreCase = true) ||
+                text.contains("Open BlueBridge", ignoreCase = true)
+        }
+
+        private fun statusText(vararg values: String): String {
+            val normalized = values.map(::normalStatusText)
+            normalized.firstOrNull { it.isNotBlank() && isWidgetActionMessage(it) }?.let { return it }
+            return normalized.firstOrNull { it.isNotBlank() } ?: "All Systems Normal"
+        }
+
         private fun compactUpdatedStatus(snapshot: WidgetVehicleSnapshot): String {
             return if (snapshot.updatedAtMillis > 0L) {
                 "Updated ${formatWidgetTime(snapshot.updatedAtMillis)}"
@@ -233,7 +253,7 @@ open class VehicleWidgetProvider : AppWidgetProvider() {
         }
 
         private fun compactBatterySubstatus(snapshot: WidgetVehicleSnapshot): String {
-            val chargeState = snapshot.chargingLabel.ifBlank { snapshot.message }.ifBlank { "Ready" }
+            val chargeState = statusText(snapshot.chargingLabel, snapshot.message)
             val detail = snapshot.detailThree.ifBlank { snapshot.detailOne }.ifBlank { lockStatus(snapshot) }
             return listOf(chargeState, detail)
                 .filter { it.isNotBlank() && it != "—" }
@@ -261,6 +281,14 @@ open class VehicleWidgetProvider : AppWidgetProvider() {
         }
 
         private fun setFullDetailViews(views: RemoteViews, snapshot: WidgetVehicleSnapshot) {
+            views.setTextViewText(R.id.widget_detail_one, verboseOpeningStatus(snapshot))
+            views.setTextViewText(R.id.widget_detail_two, verboseClimateStatus(snapshot))
+            views.setTextViewText(R.id.widget_detail_three, verboseAlertStatus(snapshot))
+            views.setTextViewText(R.id.widget_detail_four, verboseUpdatedStatus(snapshot))
+            views.setTextViewText(R.id.widget_updated, verboseLockStatus(snapshot))
+        }
+
+        private fun setCompactDetailViews(views: RemoteViews, snapshot: WidgetVehicleSnapshot) {
             views.setTextViewText(R.id.widget_detail_one, compactOpeningStatus(snapshot))
             views.setTextViewText(R.id.widget_detail_two, compactClimateStatus(snapshot))
             views.setTextViewText(R.id.widget_detail_three, compactAlertStatus(snapshot))
@@ -268,12 +296,83 @@ open class VehicleWidgetProvider : AppWidgetProvider() {
             views.setTextViewText(R.id.widget_updated, lockStatus(snapshot))
         }
 
-        private fun compactChargeStatus(snapshot: WidgetVehicleSnapshot): String {
-            val value = snapshot.chargingLabel.ifBlank { snapshot.message }.ifBlank { "Ready" }
+
+        private fun verboseBatterySubstatus(snapshot: WidgetVehicleSnapshot): String {
+            val chargeState = verboseChargeStatus(snapshot)
+            val lock = verboseLockStatus(snapshot)
+            return listOf(chargeState, lock)
+                .filter { it.isNotBlank() && it != "—" }
+                .joinToString(" · ")
+                .ifBlank { "Vehicle Status Unavailable" }
+        }
+
+        private fun verboseChargeStatus(snapshot: WidgetVehicleSnapshot): String {
+            val value = statusText(snapshot.chargingLabel, snapshot.message)
             return when {
+                value.equals("All Systems Normal", ignoreCase = true) -> "All Systems Normal"
+                value.equals("Climate on", ignoreCase = true) -> "Climate Running"
+                value.contains("charging", ignoreCase = true) -> value.replace(" · ", ": ")
+                value.contains("plugged", ignoreCase = true) -> value.replace("AC", "AC Charge").replace("DC fast", "DC Fast Charge")
+                value.length > 30 -> value.take(29).trimEnd() + "…"
+                else -> value
+            }
+        }
+
+        private fun verboseOpeningStatus(snapshot: WidgetVehicleSnapshot): String {
+            val value = snapshot.detailOne.ifBlank { "Closed" }
+            return when {
+                value == "Closed" -> "Doors/Hood/Trunk Closed"
+                value.startsWith("Open:") -> "Open Items: ${value.removePrefix("Open: ")}"
+                value.length > 32 -> value.take(31).trimEnd() + "…"
+                else -> value
+            }
+        }
+
+        private fun verboseClimateStatus(snapshot: WidgetVehicleSnapshot): String {
+            return when (val value = snapshot.detailTwo.ifBlank { "Climate off" }) {
+                "Climate on" -> "Climate Control On"
+                "Climate off" -> "Climate Control Off"
+                "Vehicle on" -> "Vehicle Powered On"
+                else -> value.take(32)
+            }
+        }
+
+        private fun verboseAlertStatus(snapshot: WidgetVehicleSnapshot): String {
+            val value = snapshot.detailThree.ifBlank { "No alerts" }
+            return when {
+                value == "No alerts" -> "No Vehicle Alerts"
+                value == "Unplugged" -> "Charge Cable Unplugged"
+                value.equals("AC plugged in", ignoreCase = true) -> "AC Charge Plug Connected"
+                value.equals("DC fast plugged in", ignoreCase = true) -> "DC Fast Charge Plug Connected"
+                value.contains("tire", ignoreCase = true) -> "Tire Pressure Alert"
+                value.contains("key battery", ignoreCase = true) -> "Key Battery Low"
+                value.contains("plugged", ignoreCase = true) -> value
+                value.length > 32 -> value.take(31).trimEnd() + "…"
+                else -> value
+            }
+        }
+
+        private fun verboseUpdatedStatus(snapshot: WidgetVehicleSnapshot): String {
+            return if (snapshot.updatedAtMillis > 0L) {
+                "Last Updated ${formatWidgetTime(snapshot.updatedAtMillis)}"
+            } else {
+                "Last Updated —"
+            }
+        }
+
+        private fun verboseLockStatus(snapshot: WidgetVehicleSnapshot): String = when (snapshot.doorsLocked) {
+            true -> "Doors Locked"
+            false -> "Doors Unlocked"
+            null -> "Lock Status —"
+        }
+
+        private fun compactChargeStatus(snapshot: WidgetVehicleSnapshot): String {
+            val value = statusText(snapshot.chargingLabel, snapshot.message)
+            return when {
+                value.equals("All Systems Normal", ignoreCase = true) -> "All Systems Normal"
                 value.contains("charging", ignoreCase = true) -> value.replace("Charging · ", "Chg ").replace("Charging", "Charging")
                 value.contains("climate", ignoreCase = true) -> "Climate"
-                value.length > 16 -> value.take(15).trimEnd() + "…"
+                value.length > 28 -> value.take(27).trimEnd() + "…"
                 else -> value
             }
         }
@@ -465,7 +564,7 @@ open class VehicleWidgetProvider : AppWidgetProvider() {
                     ?.let { "Charging · $it" } ?: "Charging"
                 evStatus != null && evStatus.batteryPlugin != 0 -> evStatus.plugStatusLabel
                 status.airCtrlOn -> "Climate on"
-                else -> "Ready"
+                else -> "All Systems Normal"
             }
             return WidgetVehicleSnapshot(
                 vehicleName = vehicle.displayName,

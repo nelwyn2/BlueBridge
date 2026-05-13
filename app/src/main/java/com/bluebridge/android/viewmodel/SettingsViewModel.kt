@@ -26,6 +26,9 @@ class SettingsViewModel @Inject constructor(
     val biometricEnabled = preferencesManager.biometricEnabled
         .stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
+    val lastBiometricUnlockAt = preferencesManager.lastBiometricUnlockAt
+        .stateIn(viewModelScope, SharingStarted.Eagerly, -1L)
+
 
     val appTheme = preferencesManager.appTheme
         .stateIn(viewModelScope, SharingStarted.Eagerly, "hyundai_night")
@@ -51,6 +54,10 @@ class SettingsViewModel @Inject constructor(
     fun setBiometricEnabled(enabled: Boolean) = viewModelScope.launch {
         preferencesManager.setBiometricEnabled(enabled)
         if (!enabled) secureCredentialsManager.clearSavedCredentials()
+    }
+
+    fun setLastBiometricUnlockAt(timestamp: Long) = viewModelScope.launch {
+        preferencesManager.setLastBiometricUnlockAt(timestamp)
     }
 
 

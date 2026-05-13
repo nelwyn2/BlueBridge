@@ -605,7 +605,7 @@ class VehicleViewModel @Inject constructor(
                 ?.let { "Charging · $it" } ?: "Charging"
             evStatus != null && evStatus.batteryPlugin != 0 -> evStatus.plugStatusLabel
             status.airCtrlOn -> "Climate on"
-            else -> "Ready"
+            else -> "All Systems Normal"
         }
         preferencesManager.cacheWidgetSnapshot(
             WidgetVehicleSnapshot(

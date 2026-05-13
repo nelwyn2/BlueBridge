@@ -76,6 +76,11 @@ BlueBridge registers multiple widget entries so the launcher can offer separate 
 
 Some Hyundai/Bluelink remote climate endpoints can return HTTP success with an empty response body. BlueBridge treats successful empty responses as successful commands instead of letting Retrofit/Gson try to parse an empty body as JSON, which previously produced `End of input at line 1 column 1 path $` after climate start/stop succeeded.
 
+
+### Widget refresh behavior
+
+Widget refresh buttons send a background status-refresh command through `VehicleWidgetProvider`. The widgets now show transient messages such as `Refreshing…` or `Sending lock…` immediately after a tap so it is clearer that the button press was received. Full-size widget controls also use larger touch targets for easier tapping.
+
 ## Regional Configuration
 
 In the app go to **Settings → Region & Brand** and select:
@@ -194,3 +199,12 @@ Licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE).
 ## Disclaimer
 
 This app is **not affiliated with Hyundai Motor Company or Kia Corporation**. It communicates with the same API endpoints used by the official apps. Use at your own risk. The authors take no responsibility for any unintended vehicle actions.
+
+### Biometric lock grace period
+
+When biometric lock is enabled, BlueBridge now keeps the current unlock session active during brief app switches or accidental minimizes. The app only requires biometric re-authentication after it has been in the background for more than about five minutes, or after the app process/session is otherwise reset.
+
+
+### Biometric widget behavior
+
+When biometric lock is enabled, BlueBridge keeps a short unlock grace period after a successful biometric check. Opening the app from a home-screen widget during that grace period should return to the dashboard without asking for fingerprint again. After the grace period expires, widget-launched app opens require biometric unlock again.
