@@ -635,6 +635,12 @@ data class CommandHistoryEntry(
 
 data class WidgetVehicleSnapshot(
     val vehicleName: String = "BlueBridge",
+    val vehicleVin: String = "",
+    val vehicleId: String = "",
+    val registrationId: String = "",
+    val generation: String = "3",
+    val brandIndicator: String = "H",
+    val modelCode: String = "",
     val doorsLocked: Boolean? = null,
     val batteryPercent: Int? = null,
     val rangeMiles: Int? = null,

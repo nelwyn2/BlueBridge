@@ -141,6 +141,12 @@ class VehicleViewModel @Inject constructor(
             preferencesManager.cacheWidgetSnapshot(
                 WidgetVehicleSnapshot(
                     vehicleName = vehicle.displayName,
+                    vehicleVin = vehicle.vin,
+                    vehicleId = vehicle.vehicleIdentifier.ifBlank { vehicle.enrollmentId.ifBlank { vehicle.regId } },
+                    registrationId = vehicle.regId.ifBlank { vehicle.enrollmentId.ifBlank { vehicle.vehicleIdentifier } },
+                    generation = vehicle.generation,
+                    brandIndicator = vehicle.brandIndicator,
+                    modelCode = vehicle.modelCode,
                     message = "Open app to refresh",
                     updatedAtMillis = System.currentTimeMillis()
                 )
@@ -610,6 +616,12 @@ class VehicleViewModel @Inject constructor(
         preferencesManager.cacheWidgetSnapshot(
             WidgetVehicleSnapshot(
                 vehicleName = vehicle.displayName,
+                vehicleVin = vehicle.vin,
+                vehicleId = vehicle.vehicleIdentifier.ifBlank { vehicle.enrollmentId.ifBlank { vehicle.regId } },
+                registrationId = vehicle.regId.ifBlank { vehicle.enrollmentId.ifBlank { vehicle.vehicleIdentifier } },
+                generation = vehicle.generation,
+                brandIndicator = vehicle.brandIndicator,
+                modelCode = vehicle.modelCode,
                 doorsLocked = status.doorsLocked,
                 batteryPercent = batteryPercent,
                 rangeMiles = rangeMiles,

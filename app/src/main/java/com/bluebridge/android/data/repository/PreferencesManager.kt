@@ -52,6 +52,12 @@ class PreferencesManager @Inject constructor(
         val PROFILE_VALET_PHOTO_URI = stringPreferencesKey("profile_valet_photo_uri")
         val COMMAND_HISTORY_JSON = stringPreferencesKey("command_history_json")
         val WIDGET_VEHICLE_NAME = stringPreferencesKey("widget_vehicle_name")
+        val WIDGET_VEHICLE_VIN = stringPreferencesKey("widget_vehicle_vin")
+        val WIDGET_VEHICLE_ID = stringPreferencesKey("widget_vehicle_id")
+        val WIDGET_REGISTRATION_ID = stringPreferencesKey("widget_registration_id")
+        val WIDGET_GENERATION = stringPreferencesKey("widget_generation")
+        val WIDGET_BRAND_INDICATOR = stringPreferencesKey("widget_brand_indicator")
+        val WIDGET_MODEL_CODE = stringPreferencesKey("widget_model_code")
         val WIDGET_DOORS_LOCKED = booleanPreferencesKey("widget_doors_locked")
         val WIDGET_BATTERY_PERCENT = intPreferencesKey("widget_battery_percent")
         val WIDGET_RANGE_MILES = intPreferencesKey("widget_range_miles")
@@ -160,6 +166,12 @@ class PreferencesManager @Inject constructor(
         .map { prefs ->
             WidgetVehicleSnapshot(
                 vehicleName = prefs[WIDGET_VEHICLE_NAME] ?: "BlueBridge",
+                vehicleVin = prefs[WIDGET_VEHICLE_VIN].orEmpty(),
+                vehicleId = prefs[WIDGET_VEHICLE_ID].orEmpty(),
+                registrationId = prefs[WIDGET_REGISTRATION_ID].orEmpty(),
+                generation = prefs[WIDGET_GENERATION] ?: "3",
+                brandIndicator = prefs[WIDGET_BRAND_INDICATOR] ?: "H",
+                modelCode = prefs[WIDGET_MODEL_CODE].orEmpty(),
                 doorsLocked = prefs[WIDGET_DOORS_LOCKED],
                 batteryPercent = prefs[WIDGET_BATTERY_PERCENT],
                 rangeMiles = prefs[WIDGET_RANGE_MILES],
@@ -302,6 +314,12 @@ class PreferencesManager @Inject constructor(
     suspend fun cacheWidgetSnapshot(snapshot: WidgetVehicleSnapshot) {
         dataStore.edit { prefs ->
             prefs[WIDGET_VEHICLE_NAME] = snapshot.vehicleName.ifBlank { "BlueBridge" }
+            if (snapshot.vehicleVin.isNotBlank()) prefs[WIDGET_VEHICLE_VIN] = snapshot.vehicleVin
+            if (snapshot.vehicleId.isNotBlank()) prefs[WIDGET_VEHICLE_ID] = snapshot.vehicleId
+            if (snapshot.registrationId.isNotBlank()) prefs[WIDGET_REGISTRATION_ID] = snapshot.registrationId
+            if (snapshot.generation.isNotBlank()) prefs[WIDGET_GENERATION] = snapshot.generation
+            if (snapshot.brandIndicator.isNotBlank()) prefs[WIDGET_BRAND_INDICATOR] = snapshot.brandIndicator
+            if (snapshot.modelCode.isNotBlank()) prefs[WIDGET_MODEL_CODE] = snapshot.modelCode
             snapshot.doorsLocked?.let { prefs[WIDGET_DOORS_LOCKED] = it } ?: prefs.remove(WIDGET_DOORS_LOCKED)
             snapshot.batteryPercent?.let { prefs[WIDGET_BATTERY_PERCENT] = it.coerceIn(0, 100) } ?: prefs.remove(WIDGET_BATTERY_PERCENT)
             snapshot.rangeMiles?.let { prefs[WIDGET_RANGE_MILES] = it.coerceAtLeast(0) } ?: prefs.remove(WIDGET_RANGE_MILES)

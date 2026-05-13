@@ -516,13 +516,33 @@ open class VehicleWidgetProvider : AppWidgetProvider() {
             repository: VehicleRepository,
             preferencesManager: PreferencesManager
         ): Vehicle? {
+            val selectedVin = preferencesManager.selectedVin.first().orEmpty()
+            val snapshot = preferencesManager.widgetVehicleSnapshot.first()
+
             val vehicles = when (val vehiclesResult = repository.getVehicles()) {
                 is Result.Success -> vehiclesResult.data
                 else -> emptyList()
             }
-            if (vehicles.isEmpty()) return null
-            val selectedVin = preferencesManager.selectedVin.first()
-            return vehicles.find { it.vin == selectedVin } ?: vehicles.firstOrNull()
+            if (vehicles.isNotEmpty()) {
+                return vehicles.find { it.vin == selectedVin }
+                    ?: vehicles.find { it.vin == snapshot.vehicleVin }
+                    ?: vehicles.firstOrNull()
+            }
+
+            val cachedVin = snapshot.vehicleVin.ifBlank { selectedVin }
+            if (cachedVin.isBlank()) return null
+
+            val cachedRegistrationId = snapshot.registrationId.ifBlank { snapshot.vehicleId }
+            return Vehicle(
+                vin = cachedVin,
+                vehicleIdentifier = snapshot.vehicleId,
+                enrollmentId = snapshot.vehicleId,
+                regId = cachedRegistrationId,
+                generation = snapshot.generation.ifBlank { "3" },
+                nickname = snapshot.vehicleName.takeIf { it.isNotBlank() && it != "BlueBridge" }.orEmpty(),
+                brandIndicator = snapshot.brandIndicator.ifBlank { "H" },
+                modelCode = snapshot.modelCode
+            )
         }
 
         private suspend fun refreshVehicleStatus(
@@ -568,6 +588,12 @@ open class VehicleWidgetProvider : AppWidgetProvider() {
             }
             return WidgetVehicleSnapshot(
                 vehicleName = vehicle.displayName,
+                vehicleVin = vehicle.vin,
+                vehicleId = vehicle.vehicleIdentifier.ifBlank { vehicle.enrollmentId.ifBlank { vehicle.regId } },
+                registrationId = vehicle.regId.ifBlank { vehicle.enrollmentId.ifBlank { vehicle.vehicleIdentifier } },
+                generation = vehicle.generation,
+                brandIndicator = vehicle.brandIndicator,
+                modelCode = vehicle.modelCode,
                 doorsLocked = status.doorsLocked,
                 batteryPercent = batteryPercent,
                 rangeMiles = rangeMiles,
