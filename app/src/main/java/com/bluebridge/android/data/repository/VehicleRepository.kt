@@ -1,22 +1,24 @@
 package com.bluebridge.android.data.repository
 
 import com.bluebridge.android.data.api.ApiClient
-import com.bluebridge.android.data.api.BluelinkConstants
+import com.bluebridge.android.data.api.CanadaApiClient
 import com.bluebridge.android.data.api.Region
 import com.bluebridge.android.data.models.*
 import kotlinx.coroutines.flow.first
 import javax.inject.Inject
-import java.util.UUID
+import com.google.gson.Gson
+import com.google.gson.JsonArray
+import com.google.gson.JsonElement
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 import okhttp3.ResponseBody
+import kotlin.math.roundToInt
 
 import javax.inject.Singleton
 
 sealed class Result<out T> {
     data class Success<T>(val data: T) : Result<T>()
     data class Error(val message: String, val code: Int? = null) : Result<Nothing>()
-    object Loading : Result<Nothing>()
 }
 
 @Singleton
@@ -24,15 +26,41 @@ class VehicleRepository @Inject constructor(
     private val preferencesManager: PreferencesManager
 ) {
     private var apiClient: ApiClient? = null
+    private var apiClientRegion: Region? = null
+    private var canadaApiClient: CanadaApiClient? = null
+    private var canadaApiClientRegion: Region? = null
+    private val gson = Gson()
+
+    private suspend fun currentRegion(): Region {
+        val regionStr = preferencesManager.region.first()
+        return runCatching { Region.valueOf(regionStr) }.getOrDefault(Region.US_HYUNDAI)
+    }
 
     private suspend fun getApiService() = run {
-        val regionStr = preferencesManager.region.first()
-        val region = Region.valueOf(regionStr)
-        if (apiClient == null) {
+        val region = currentRegion()
+        if (region.isCanada) {
+            throw IllegalStateException("Canada uses the TODS web API path. Use the Canada API service instead.")
+        }
+        if (apiClient == null || apiClientRegion != region) {
             apiClient = ApiClient(region.baseUrl)
+            apiClientRegion = region
         }
         apiClient!!.apiService
     }
+
+    private suspend fun getCanadaApiService() = run {
+        val region = currentRegion()
+        if (!region.isCanada) {
+            throw IllegalStateException("Current region is not Canada")
+        }
+        if (canadaApiClient == null || canadaApiClientRegion != region) {
+            canadaApiClient = CanadaApiClient(region.baseUrl, region.canadaHost)
+            canadaApiClientRegion = region
+        }
+        canadaApiClient!!.apiService
+    }
+
+    private suspend fun isCanadaRegion(): Boolean = currentRegion().isCanada
 
     private suspend fun getToken() = preferencesManager.accessToken.first()
         ?: throw IllegalStateException("Not authenticated")
@@ -146,9 +174,217 @@ class VehicleRepository @Inject constructor(
         return runCatching { value.asString }.getOrNull()
     }
 
+
+    // ─── Canada TODS helpers ────────────────────────────────────────────────────
+
+    private fun JsonObject.objectOrNull(name: String): JsonObject? {
+        val value = get(name) ?: return null
+        return if (!value.isJsonNull && value.isJsonObject) value.asJsonObject else null
+    }
+
+    private fun JsonObject.arrayOrNull(name: String): JsonArray? {
+        val value = get(name) ?: return null
+        return if (!value.isJsonNull && value.isJsonArray) value.asJsonArray else null
+    }
+
+    private fun JsonObject.intOrNull(name: String): Int? {
+        val value = get(name) ?: return null
+        if (value.isJsonNull) return null
+        return runCatching { value.asInt }.getOrNull()
+            ?: runCatching { value.asString.toDouble().roundToInt() }.getOrNull()
+    }
+
+    private fun canadaErrorMessage(json: JsonObject?, fallback: String): String {
+        val error = json?.objectOrNull("error")
+        val errorDesc = error?.stringOrNull("errorDesc")
+            ?: error?.stringOrNull("errorMessage")
+            ?: error?.stringOrNull("message")
+        val errorCode = error?.stringOrNull("errorCode")
+        return when {
+            !errorDesc.isNullOrBlank() && !errorCode.isNullOrBlank() -> "$fallback ($errorCode): $errorDesc"
+            !errorDesc.isNullOrBlank() -> errorDesc
+            !errorCode.isNullOrBlank() -> "$fallback ($errorCode)"
+            else -> fallback
+        }
+    }
+
+    private fun canadaResponseFailed(json: JsonObject?): Boolean {
+        val responseCode = json?.objectOrNull("responseHeader")?.intOrNull("responseCode")
+        return responseCode != null && responseCode != 0
+    }
+
+    private fun canadaOtpRequired(json: JsonObject?): Boolean =
+        json?.objectOrNull("error")?.stringOrNull("errorCode") == "7110"
+
+    private suspend fun loginCanada(username: String, password: String, servicePin: String): Result<Unit> {
+        return try {
+            val deviceId = preferencesManager.getOrCreateCanadaDeviceId()
+            val response = getCanadaApiService().login(
+                deviceId = deviceId,
+                body = mapOf("loginId" to username, "password" to password)
+            )
+            val json = response.body()
+            if (!response.isSuccessful) {
+                return Result.Error(canadaErrorMessage(json, "Canada login failed (${response.code()})"), response.code())
+            }
+            if (canadaOtpRequired(json)) {
+                return Result.Error(
+                    "Canada login requires OTP/MFA for this device. Open the official Hyundai/Kia Canada app or web portal once, then try BlueBridge again. OTP entry is scaffolded in the API layer but not exposed in the login screen yet."
+                )
+            }
+            if (canadaResponseFailed(json)) {
+                return Result.Error(canadaErrorMessage(json, "Canada login failed"))
+            }
+            val token = json?.objectOrNull("result")?.objectOrNull("token")
+                ?: return Result.Error("Canada login did not return a token")
+            preferencesManager.saveSession(
+                accessToken = token.stringOrNull("accessToken").orEmpty(),
+                refreshToken = token.stringOrNull("refreshToken").orEmpty(),
+                username = username,
+                expiresIn = (token.intOrNull("expireIn") ?: 1800).coerceAtLeast(60) - 60,
+                servicePin = servicePin
+            )
+            Result.Success(Unit)
+        } catch (e: Exception) {
+            Result.Error(e.message ?: "Canada login network error")
+        }
+    }
+
+    private suspend fun getCanadaVehicles(): Result<List<Vehicle>> {
+        return try {
+            val token = getToken()
+            val deviceId = preferencesManager.getOrCreateCanadaDeviceId()
+            val response = getCanadaApiService().getVehicles(token, deviceId)
+            val json = response.body()
+            if (!response.isSuccessful || canadaResponseFailed(json)) {
+                return Result.Error(canadaErrorMessage(json, "Failed to fetch Canadian vehicles (${response.code()})"), response.code())
+            }
+            val region = currentRegion()
+            val brand = when (region) {
+                Region.CA_KIA -> "K"
+                Region.CA_GENESIS -> "G"
+                else -> "H"
+            }
+            val vehicles = json?.objectOrNull("result")?.arrayOrNull("vehicles")
+                ?.mapNotNull { it.takeIfJsonObject() }
+                ?.map { entry ->
+                    val vehicleId = entry.stringOrNull("vehicleId").orEmpty()
+                    val fuelCode = entry.stringOrNull("fuelKindCode").orEmpty()
+                    val modelName = entry.stringOrNull("modelName").orEmpty()
+                    Vehicle(
+                        vin = entry.stringOrNull("vin").orEmpty(),
+                        vehicleIdentifier = vehicleId,
+                        enrollmentId = vehicleId,
+                        regId = vehicleId,
+                        generation = "3",
+                        nickname = entry.stringOrNull("nickName").orEmpty(),
+                        modelCode = if (fuelCode == "E") "$modelName EV" else modelName,
+                        modelName = modelName,
+                        modelYear = entry.stringOrNull("modelYear").orEmpty(),
+                        brandIndicator = brand,
+                        odometer = entry.intOrNull("odometer") ?: 0
+                    )
+                }.orEmpty()
+            Result.Success(vehicles)
+        } catch (e: Exception) {
+            Result.Error(e.message ?: "Canada vehicle list network error")
+        }
+    }
+
+    private fun JsonElement.takeIfJsonObject(): JsonObject? =
+        if (!isJsonNull && isJsonObject) asJsonObject else null
+
+    private suspend fun getCanadaVehicleStatus(vin: String, forceRefresh: Boolean, registrationId: String): Result<VehicleStatusData> {
+        return try {
+            val token = getToken()
+            val deviceId = preferencesManager.getOrCreateCanadaDeviceId()
+            val vehicleId = registrationId.ifBlank { vin }
+            val api = getCanadaApiService()
+            val response = if (forceRefresh) {
+                api.getLiveVehicleStatus(token, vehicleId, deviceId)
+            } else {
+                api.getCachedVehicleStatus(token, vehicleId, deviceId)
+            }
+            val json = response.body()
+            if (!response.isSuccessful || canadaResponseFailed(json)) {
+                return Result.Error(canadaErrorMessage(json, "Canadian status fetch failed (${response.code()})"), response.code())
+            }
+            val status = json?.objectOrNull("result")?.objectOrNull("status")
+                ?: return Result.Error("Could not parse Canadian vehicle status")
+            val data = gson.fromJson(status, VehicleStatusData::class.java)
+            preferencesManager.setLastStatusRefresh(System.currentTimeMillis())
+            Result.Success(data)
+        } catch (e: Exception) {
+            Result.Error(e.message ?: "Canada status network error")
+        }
+    }
+
+    private suspend fun getCanadaPinAuth(accessToken: String, vehicleId: String, pin: String, deviceId: String): String {
+        val response = getCanadaApiService().verifyPin(accessToken, vehicleId, deviceId, mapOf("pin" to pin))
+        val json = response.body()
+        if (!response.isSuccessful || canadaResponseFailed(json)) {
+            throw IllegalStateException(canadaErrorMessage(json, "Canadian PIN verification failed (${response.code()})"))
+        }
+        return json?.objectOrNull("result")?.stringOrNull("pAuth")
+            ?: throw IllegalStateException("Canadian PIN verification did not return pAuth")
+    }
+
+    private suspend fun runCanadaPinCommand(
+        vin: String,
+        registrationId: String,
+        actionName: String,
+        call: suspend (accessToken: String, vehicleId: String, pAuth: String, deviceId: String, pin: String) -> retrofit2.Response<ResponseBody>
+    ): Result<Unit> {
+        return try {
+            val accessToken = getToken()
+            val pin = getServicePin()
+            val deviceId = preferencesManager.getOrCreateCanadaDeviceId()
+            val vehicleId = registrationId.ifBlank { vin }
+            val pAuth = getCanadaPinAuth(accessToken, vehicleId, pin, deviceId)
+            validateRawCommandResponse(call(accessToken, vehicleId, pAuth, deviceId, pin), actionName)
+        } catch (e: Exception) {
+            Result.Error(e.message ?: "$actionName failed")
+        }
+    }
+
+    private fun canadaClimateTempHexFromF(tempF: String): String {
+        val fahrenheit = tempF.toDoubleOrNull() ?: 72.0
+        val celsius = ((fahrenheit - 32.0) * 5.0 / 9.0).coerceIn(14.0, 31.5)
+        val halfStep = ((celsius - 14.0) / 0.5).roundToInt().coerceIn(0, 35)
+        return halfStep.toString(16).padStart(2, '0').uppercase() + "H"
+    }
+
+    private fun canadaClimatePayload(pin: String, tempF: String, defrost: Boolean, durationMinutes: Int, isEv: Boolean): JsonObject {
+        val airTemp = JsonObject().apply {
+            addProperty("value", canadaClimateTempHexFromF(tempF))
+            addProperty("unit", 0)
+            addProperty("hvacTempType", if (isEv) 1 else 0)
+        }
+        val seatCommands = JsonObject().apply {
+            addProperty("drvSeatOptCmd", 0)
+            addProperty("astSeatOptCmd", 0)
+            addProperty("rlSeatOptCmd", 0)
+            addProperty("rrSeatOptCmd", 0)
+        }
+        val settings = JsonObject().apply {
+            addProperty("airCtrl", 1)
+            addProperty("defrost", defrost)
+            addProperty("heating1", 0)
+            addProperty("igniOnDuration", durationMinutes)
+            add("airTemp", airTemp)
+            add("seatHeaterVentCMD", seatCommands)
+            if (!isEv) addProperty("ims", 0)
+        }
+        return JsonObject().apply {
+            addProperty("pin", pin)
+            if (isEv) add("hvacInfo", settings) else add("setting", settings)
+        }
+    }
+
     // ─── Auth ──────────────────────────────────────────────────────────────────
 
     suspend fun login(username: String, password: String, servicePin: String = ""): Result<Unit> {
+        if (isCanadaRegion()) return loginCanada(username, password, servicePin)
         return try {
             val response = getApiService().getToken(
                 LoginRequest(username = username, password = password)
@@ -182,11 +418,15 @@ class VehicleRepository @Inject constructor(
     suspend fun logout(requirePassword: Boolean = true) {
         preferencesManager.clearSession(requirePassword = requirePassword)
         apiClient = null
+        apiClientRegion = null
+        canadaApiClient = null
+        canadaApiClientRegion = null
     }
 
     // ─── Vehicles ──────────────────────────────────────────────────────────────
 
     suspend fun getVehicles(): Result<List<Vehicle>> {
+        if (isCanadaRegion()) return getCanadaVehicles()
         return try {
             val token = getToken()
             val username = getUsername()
@@ -216,6 +456,7 @@ class VehicleRepository @Inject constructor(
         generation: String = "3",
         brandIndicator: String = "H"
     ): Result<VehicleStatusData> {
+        if (isCanadaRegion()) return getCanadaVehicleStatus(vin, forceRefresh, registrationId)
         return try {
             val token = getToken()
             val username = getUsername()
@@ -252,6 +493,7 @@ class VehicleRepository @Inject constructor(
         generation: String = "3",
         brandIndicator: String = "H"
     ): Result<VehicleLocation> {
+        if (isCanadaRegion()) return Result.Error("Vehicle location for Canada is not mapped yet.")
         return try {
             val token = getToken()
             val username = getUsername()
@@ -285,6 +527,11 @@ class VehicleRepository @Inject constructor(
         generation: String = "3",
         brandIndicator: String = "H"
     ): Result<Unit> {
+        if (isCanadaRegion()) {
+            return runCanadaPinCommand(vin, registrationId, "Lock") { accessToken, vehicleId, pAuth, deviceId, pin ->
+                getCanadaApiService().lockDoors(accessToken, vehicleId, pAuth, deviceId, mapOf("pin" to pin))
+            }
+        }
         return try {
             val token = getToken()
             val username = getUsername()
@@ -313,6 +560,11 @@ class VehicleRepository @Inject constructor(
         generation: String = "3",
         brandIndicator: String = "H"
     ): Result<Unit> {
+        if (isCanadaRegion()) {
+            return runCanadaPinCommand(vin, registrationId, "Unlock") { accessToken, vehicleId, pAuth, deviceId, pin ->
+                getCanadaApiService().unlockDoors(accessToken, vehicleId, pAuth, deviceId, mapOf("pin" to pin))
+            }
+        }
         return try {
             val token = getToken()
             val username = getUsername()
@@ -353,6 +605,16 @@ class VehicleRepository @Inject constructor(
         generation: String = "3",
         brandIndicator: String = "H"
     ): Result<Unit> {
+        if (isCanadaRegion()) {
+            return runCanadaPinCommand(vin, registrationId, "Start") { accessToken, vehicleId, pAuth, deviceId, pin ->
+                val payload = canadaClimatePayload(pin, tempF, defrost, durationMinutes, isEv)
+                if (isEv) {
+                    getCanadaApiService().startEvClimate(accessToken, vehicleId, pAuth, deviceId, payload)
+                } else {
+                    getCanadaApiService().startEngine(accessToken, vehicleId, pAuth, deviceId, payload)
+                }
+            }
+        }
         return try {
             val token = getToken()
             val username = getUsername()
@@ -409,6 +671,11 @@ class VehicleRepository @Inject constructor(
         generation: String = "3",
         brandIndicator: String = "H"
     ): Result<Unit> {
+        if (isCanadaRegion()) {
+            return runCanadaPinCommand(vin, registrationId, "Stop") { accessToken, vehicleId, pAuth, deviceId, pin ->
+                getCanadaApiService().stopEngine(accessToken, vehicleId, pAuth, deviceId, mapOf("pin" to pin))
+            }
+        }
         return try {
             val token = getToken()
             val username = getUsername()
@@ -436,6 +703,11 @@ class VehicleRepository @Inject constructor(
         generation: String = "3",
         brandIndicator: String = "H"
     ): Result<Unit> {
+        if (isCanadaRegion()) {
+            return runCanadaPinCommand(vin, registrationId, "Stop Climate") { accessToken, vehicleId, pAuth, deviceId, pin ->
+                getCanadaApiService().stopEvClimate(accessToken, vehicleId, pAuth, deviceId, mapOf("pin" to pin))
+            }
+        }
         return try {
             val token = getToken()
             val username = getUsername()
@@ -526,6 +798,11 @@ class VehicleRepository @Inject constructor(
         brandIndicator: String = "H",
         vehicleId: String = ""
     ): Result<Unit> {
+        if (isCanadaRegion()) {
+            return runCanadaPinCommand(vin, registrationId.ifBlank { vehicleId }, "Charge start") { accessToken, caVehicleId, pAuth, deviceId, pin ->
+                getCanadaApiService().startCharging(accessToken, caVehicleId, pAuth, deviceId, mapOf("pin" to pin))
+            }
+        }
         return try {
             val token = getToken()
             val username = getUsername()
@@ -555,6 +832,11 @@ class VehicleRepository @Inject constructor(
         brandIndicator: String = "H",
         vehicleId: String = ""
     ): Result<Unit> {
+        if (isCanadaRegion()) {
+            return runCanadaPinCommand(vin, registrationId.ifBlank { vehicleId }, "Charge stop") { accessToken, caVehicleId, pAuth, deviceId, pin ->
+                getCanadaApiService().stopCharging(accessToken, caVehicleId, pAuth, deviceId, mapOf("pin" to pin))
+            }
+        }
         return try {
             val token = getToken()
             val username = getUsername()
@@ -583,9 +865,9 @@ class VehicleRepository @Inject constructor(
         dcTarget: Int = 80,
         registrationId: String = "",
         generation: String = "3",
-        brandIndicator: String = "H",
-        vehicleId: String = ""
+        brandIndicator: String = "H"
     ): Result<Unit> {
+        if (isCanadaRegion()) return Result.Error("Canadian charge target setting is not mapped yet; start/stop charging is available for this vehicle.")
         val allowedTargets = setOf(50, 60, 70, 80, 90, 100)
         if (acTarget !in allowedTargets || dcTarget !in allowedTargets) {
             return Result.Error("Charge targets must be one of 50, 60, 70, 80, 90, or 100%")
@@ -633,6 +915,7 @@ class VehicleRepository @Inject constructor(
         generation: String = "3",
         brandIndicator: String = "H"
     ): Result<Unit> {
+        if (isCanadaRegion()) return Result.Error("Horn/lights for Canada is not mapped yet.")
         return try {
             val token = getToken()
             val username = getUsername()
@@ -661,6 +944,7 @@ class VehicleRepository @Inject constructor(
         generation: String = "3",
         brandIndicator: String = "H"
     ): Result<Unit> {
+        if (isCanadaRegion()) return Result.Error("Flash lights for Canada is not mapped yet.")
         return try {
             val token = getToken()
             val username = getUsername()
@@ -685,15 +969,18 @@ class VehicleRepository @Inject constructor(
 
     // ─── Official-app-style feature hooks ─────────────────────────────────────
 
-    suspend fun setValetMode(vin: String, enabled: Boolean): Result<Unit> {
+    fun setValetMode(vin: String, enabled: Boolean): Result<Unit> {
+        val requestedState = if (enabled) "enable" else "disable"
+        val vehicleSuffix = vin.takeLast(6).takeIf { it.isNotBlank() }?.let { " for vehicle ending in $it" }.orEmpty()
         return Result.Error(
-            "Valet Mode is saved locally, but the Hyundai valet endpoint is not mapped in this project yet."
+            "Valet Mode $requestedState$vehicleSuffix is saved locally, but the Hyundai valet endpoint is not mapped in this project yet."
         )
     }
 
-    suspend fun getSurroundViewSnapshot(vin: String): Result<SurroundViewSnapshot> {
+    fun getSurroundViewSnapshot(vin: String): Result<SurroundViewSnapshot> {
+        val vehicleSuffix = vin.takeLast(6).takeIf { it.isNotBlank() }?.let { " for vehicle ending in $it" }.orEmpty()
         return Result.Error(
-            "Surround View Monitor requires Hyundai camera snapshot endpoints that are not mapped in this project yet."
+            "Surround View Monitor$vehicleSuffix requires Hyundai camera snapshot endpoints that are not mapped in this project yet."
         )
     }
 

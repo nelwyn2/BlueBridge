@@ -10,7 +10,9 @@ import javax.inject.Singleton
 object BluelinkConstants {
     const val BASE_URL_US_HYUNDAI = "https://api.telematics.hyundaiusa.com/"
     const val BASE_URL_US_KIA = "https://kiaconnect.com/"
-    const val BASE_URL_CA_HYUNDAI = "https://api.hyundaicanada.com/"
+    const val BASE_URL_CA_HYUNDAI = "https://mybluelink.ca/tods/api/"
+    const val BASE_URL_CA_KIA = "https://kiaconnect.ca/tods/api/"
+    const val BASE_URL_CA_GENESIS = "https://genesisconnect.ca/tods/api/"
     const val BASE_URL_EU = "https://prd.eu-ccapi.hyundai.com:8080/"
     const val BASE_URL_AU = "https://prd.aus-ccapi.hyundai.com:8080/"
 
@@ -19,10 +21,6 @@ object BluelinkConstants {
     const val CLIENT_SECRET = "v558o935-6nne-423i-baa8"
     const val API_HOST = "api.telematics.hyundaiusa.com"
     const val APP_ID = "14d5efbe-c194-4a5c-af66-e0ba8c8f4c80"
-
-    // Kia UVO credentials
-    const val KIA_CLIENT_ID = "L5hc7010"
-    const val KIA_CLIENT_SECRET = "mcnpc9dEZlfLfFaHR18zAMBNBqNMcDdcOBOLWOlBqjGDCcpkIj"
 
     const val TIMEOUT_SECONDS = 30L
     const val COMMAND_TIMEOUT_SECONDS = 60L
@@ -68,10 +66,12 @@ class ApiClient(private val baseUrl: String = BluelinkConstants.BASE_URL_US_HYUN
 }
 
 // Regional API configuration
-enum class Region(val baseUrl: String, val label: String) {
+enum class Region(val baseUrl: String, val label: String, val isCanada: Boolean = false, val canadaHost: String = "") {
     US_HYUNDAI(BluelinkConstants.BASE_URL_US_HYUNDAI, "USA — Hyundai"),
     US_KIA(BluelinkConstants.BASE_URL_US_KIA, "USA — Kia"),
-    CA_HYUNDAI(BluelinkConstants.BASE_URL_CA_HYUNDAI, "Canada — Hyundai"),
+    CA_HYUNDAI(BluelinkConstants.BASE_URL_CA_HYUNDAI, "Canada — Hyundai", true, "mybluelink.ca"),
+    CA_KIA(BluelinkConstants.BASE_URL_CA_KIA, "Canada — Kia", true, "kiaconnect.ca"),
+    CA_GENESIS(BluelinkConstants.BASE_URL_CA_GENESIS, "Canada — Genesis", true, "genesisconnect.ca"),
     EU(BluelinkConstants.BASE_URL_EU, "Europe"),
     AU(BluelinkConstants.BASE_URL_AU, "Australia / New Zealand")
 }

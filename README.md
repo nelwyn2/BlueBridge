@@ -9,6 +9,9 @@ An unofficial, open-source Android app for controlling Hyundai and Kia vehicles 
 - ❄️ **Climate Control** — temperature, defrost, heated steering wheel, seat heat levels
 - 🔋 **EV Support** — battery status, start/stop charging, set AC & DC charge targets
 - 📍 **Vehicle Status** — doors, hood, trunk, tires, ignition, odometer
+- 🔔 **Horn & Lights** — panic button, flash lights only
+- 🌍 **Multi-region** — USA Hyundai, USA Kia, Canada, Europe, Australia/NZ
+- 🌑 **Dark-first Material 3 UI**
 - 🏠 **Home screen widgets** — full, battery, lock, unlock, climate, refresh, and compact controls widgets
 - 🔐 **Biometric lock** option
 - 🔑 **Secure token storage** via DataStore
@@ -81,7 +84,9 @@ In the app go to **Settings → Region & Brand** and select:
 |--------|---------|
 | USA — Hyundai | US Bluelink accounts |
 | USA — Kia | US Kia Connect / UVO accounts |
-| Canada — Hyundai | Canadian Bluelink |
+| Canada — Hyundai | Canadian Bluelink via `mybluelink.ca` TODS API |
+| Canada — Kia | Canadian Kia Connect via `kiaconnect.ca` TODS API |
+| Canada — Genesis | Canadian Genesis Connect via `genesisconnect.ca` TODS API |
 | Europe | EU Hyundai/Kia |
 | Australia / NZ | AUS Hyundai/Kia |
 
@@ -104,6 +109,30 @@ In the app go to **Settings → Region & Brand** and select:
 | Widget command appears delayed | The command may have been accepted while the vehicle status endpoint has not updated yet. Refresh again after a short interval. |
 | Climate start/stop shows success but status lags | The remote command and the vehicle status update are separate API flows; status may trail the accepted command. |
 | Region-specific features are missing | Some endpoints and features vary by Hyundai/Kia region, vehicle model, account type, and EV vs ICE platform. |
+
+
+## Canadian Vehicle Support
+
+Canada uses the Hyundai/Kia TODS web API rather than the USA mobile API. BlueBridge includes a separate Canadian API path for:
+
+- Canadian Hyundai: `https://mybluelink.ca/tods/api/`
+- Canadian Kia: `https://kiaconnect.ca/tods/api/`
+- Canadian Genesis: `https://genesisconnect.ca/tods/api/`
+
+Implemented Canadian flows:
+
+- login through `/v2/login`
+- stable generated `Deviceid` storage to reduce repeat MFA prompts
+- vehicle list through `/vhcllst`
+- cached and live status through `/lstvhclsts` and `/rltmvhclsts`
+- PIN verification through `/vrfypin` before protected commands
+- lock and unlock through `/drlck` and `/drulck`
+- cabin climate start/stop through `/rmtstrt`, `/rmtstp`, `/evc/rfon`, and `/evc/rfoff`
+- EV charge start/stop through `/evc/rcstrt` and `/evc/rcstp`
+
+Canadian OTP/MFA endpoints are present in the API layer, but the login screen does not yet expose an OTP entry flow. If the server returns an OTP-required response for a new device, BlueBridge shows a clear message asking the user to authenticate once in the official Canadian app or web portal before trying again.
+
+Currently not mapped for Canada: horn/lights, vehicle location, and charge-target editing.
 
 ## Architecture
 

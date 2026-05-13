@@ -12,7 +12,10 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.first
 import java.io.IOException
+import java.util.UUID
+import android.util.Base64
 import org.json.JSONArray
 import org.json.JSONObject
 import javax.inject.Inject
@@ -36,8 +39,6 @@ class PreferencesManager @Inject constructor(
         val SELECTED_VIN = stringPreferencesKey("selected_vin")
         val REGION = stringPreferencesKey("region")
         val TEMPERATURE_UNIT = stringPreferencesKey("temp_unit")
-        val DISTANCE_UNIT = stringPreferencesKey("distance_unit")
-        val DARK_MODE = booleanPreferencesKey("dark_mode")
         val BIOMETRIC_ENABLED = booleanPreferencesKey("biometric_enabled")
         val LAST_STATUS_REFRESH = longPreferencesKey("last_status_refresh")
         val DEFAULT_CLIMATE_TEMP = stringPreferencesKey("default_climate_temp")
@@ -56,15 +57,12 @@ class PreferencesManager @Inject constructor(
         val WIDGET_CHARGING_LABEL = stringPreferencesKey("widget_charging_label")
         val WIDGET_MESSAGE = stringPreferencesKey("widget_message")
         val WIDGET_UPDATED_AT = longPreferencesKey("widget_updated_at")
+        val CANADA_DEVICE_ID = stringPreferencesKey("canada_device_id")
     }
 
     val accessToken: Flow<String?> = dataStore.data
         .catch { if (it is IOException) emit(emptyPreferences()) else throw it }
         .map { it[ACCESS_TOKEN] }
-
-    val refreshToken: Flow<String?> = dataStore.data
-        .catch { if (it is IOException) emit(emptyPreferences()) else throw it }
-        .map { it[REFRESH_TOKEN] }
 
     val username: Flow<String?> = dataStore.data
         .catch { if (it is IOException) emit(emptyPreferences()) else throw it }
@@ -163,6 +161,19 @@ class PreferencesManager @Inject constructor(
             )
         }
 
+
+    suspend fun getOrCreateCanadaDeviceId(): String {
+        val existing = dataStore.data.first()[CANADA_DEVICE_ID]
+        if (!existing.isNullOrBlank()) return existing
+
+        val generated = Base64.encodeToString(
+            UUID.randomUUID().toString().replace("-", "").toByteArray(),
+            Base64.NO_WRAP
+        )
+        dataStore.edit { prefs -> prefs[CANADA_DEVICE_ID] = generated }
+        return generated
+    }
+
     suspend fun saveSession(accessToken: String, refreshToken: String, username: String, expiresIn: Int, servicePin: String? = null) {
         dataStore.edit { prefs ->
             prefs[ACCESS_TOKEN] = accessToken
@@ -183,10 +194,6 @@ class PreferencesManager @Inject constructor(
             prefs.remove(TOKEN_EXPIRES_AT)
             prefs[PASSWORD_REQUIRED] = requirePassword
         }
-    }
-
-    suspend fun setPasswordRequired(required: Boolean) {
-        dataStore.edit { prefs -> prefs[PASSWORD_REQUIRED] = required }
     }
 
     suspend fun setSelectedVin(vin: String) {
