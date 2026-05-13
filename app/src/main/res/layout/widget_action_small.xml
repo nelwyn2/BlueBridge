@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@drawable/widget_dashboard_background"
+    android:padding="6dp"
+    android:gravity="center">
+
+    <TextView
+        android:id="@+id/widget_action_button"
+        android:layout_width="match_parent"
+        android:layout_height="28dp"
+        android:background="@drawable/widget_action_background"
+        android:gravity="center"
+        android:text="Lock"
+        android:textColor="#FFFFFF"
+        android:textSize="11sp"
+        android:textStyle="bold"
+        android:maxLines="1"
+        android:ellipsize="end" />
+
+    <TextView
+        android:id="@+id/widget_action_title"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="3dp"
+        android:text="Ready"
+        android:textColor="#BFD0D6E0"
+        android:textSize="9sp"
+        android:gravity="center"
+        android:maxLines="1"
+        android:ellipsize="end" />
+
+    <TextView
+        android:id="@+id/widget_action_status"
+        android:layout_width="1dp"
+        android:layout_height="1dp"
+        android:text="" />
+</LinearLayout>
