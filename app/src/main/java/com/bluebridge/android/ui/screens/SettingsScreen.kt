@@ -198,7 +198,7 @@ fun SettingsScreen(
             // ── About ─────────────────────────────────────────────────────────
             ControlSection(title = "About") {
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    SettingsInfoRow("Version", "1.1")
+                    SettingsInfoRow("Version", "1.11")
                     SettingsInfoRow("API", "Hyundai Bluelink / Kia Connect")
                     SettingsInfoRow("Credit", "Nelwyn99")
                     Spacer(Modifier.height(4.dp))
@@ -269,7 +269,7 @@ fun SettingsScreen(
             title = { Text("Select Region & Brand") },
             text = {
                 Column {
-                    Region.entries.forEach { r ->
+                    Region.entries.filter { it != Region.AU }.forEach { r ->
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -287,7 +287,7 @@ fun SettingsScreen(
                             Spacer(Modifier.width(8.dp))
                             Text(r.label)
                         }
-                        if (r != Region.entries.last()) HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f))
+                        if (r != Region.entries.filter { it != Region.AU }.last()) HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f))
                     }
                 }
             },

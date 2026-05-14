@@ -68,6 +68,8 @@ class PreferencesManager @Inject constructor(
         val WIDGET_DETAIL_THREE = stringPreferencesKey("widget_detail_three")
         val WIDGET_UPDATED_AT = longPreferencesKey("widget_updated_at")
         val CANADA_DEVICE_ID = stringPreferencesKey("canada_device_id")
+        val EU_DEVICE_ID = stringPreferencesKey("eu_device_id")
+        val AU_DEVICE_ID = stringPreferencesKey("au_device_id")
     }
 
     val accessToken: Flow<String?> = dataStore.data
@@ -195,6 +197,29 @@ class PreferencesManager @Inject constructor(
         )
         dataStore.edit { prefs -> prefs[CANADA_DEVICE_ID] = generated }
         return generated
+    }
+
+    suspend fun getOrCreateEuDeviceId(): String {
+        val existing = dataStore.data.first()[EU_DEVICE_ID]
+        if (!existing.isNullOrBlank()) return existing
+
+        val generated = UUID.randomUUID().toString()
+        dataStore.edit { prefs -> prefs[EU_DEVICE_ID] = generated }
+        return generated
+    }
+
+    suspend fun getOrCreateAuDeviceId(): String {
+        val existing = dataStore.data.first()[AU_DEVICE_ID]
+        if (!existing.isNullOrBlank()) return existing
+
+        val generated = UUID.randomUUID().toString()
+        dataStore.edit { prefs -> prefs[AU_DEVICE_ID] = generated }
+        return generated
+    }
+
+    suspend fun setAuDeviceId(deviceId: String) {
+        if (deviceId.isBlank()) return
+        dataStore.edit { prefs -> prefs[AU_DEVICE_ID] = deviceId }
     }
 
     suspend fun saveSession(accessToken: String, refreshToken: String, username: String, expiresIn: Int, servicePin: String? = null) {

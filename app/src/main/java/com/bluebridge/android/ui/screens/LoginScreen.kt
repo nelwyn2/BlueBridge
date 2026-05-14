@@ -161,7 +161,7 @@ fun LoginScreen(
                     expanded = regionMenuExpanded,
                     onDismissRequest = { regionMenuExpanded = false }
                 ) {
-                    Region.entries.forEach { region ->
+                    Region.entries.filter { it != Region.AU }.forEach { region ->
                         DropdownMenuItem(
                             text = { Text(region.label) },
                             onClick = {

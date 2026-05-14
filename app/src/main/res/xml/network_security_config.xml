@@ -7,6 +7,12 @@
         <domain includeSubdomains="true">genesisconnect.ca</domain>
         <domain includeSubdomains="true">kiaconnect.com</domain>
         <domain includeSubdomains="true">prd.eu-ccapi.hyundai.com</domain>
-        <domain includeSubdomains="true">prd.aus-ccapi.hyundai.com</domain>
+        <domain includeSubdomains="true">idpconnect-eu.genesis.com</domain>
+        <domain includeSubdomains="true">idpconnect-eu.kia.com</domain>
+        <domain includeSubdomains="true">idpconnect-eu.hyundai.com</domain>
+        <domain includeSubdomains="true">prd-eu-ccapi.genesis.com</domain>
+        <domain includeSubdomains="true">prd.eu-ccapi.kia.com</domain>
+        <domain includeSubdomains="true">au-apigw.ccs.hyundai.com.au</domain>
+        <domain includeSubdomains="true">au-apigw.ccs.kia.com.au</domain>
     </domain-config>
 </network-security-config>

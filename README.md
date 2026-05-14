@@ -86,6 +86,27 @@ Widget refresh buttons send a background status-refresh command through `Vehicle
 
 BlueBridge lets users choose their **Region & Brand** directly on the login screen before authentication. This is important because Hyundai/Kia accounts are region-specific and use different services in the USA, Canada, Europe, and Australia/NZ. The selected region is saved locally and is also available later under **Settings → Region & Brand**.
 
+
+## Europe Vehicle Support
+
+European Hyundai/Kia/Genesis support uses the EU CCSP API (`prd.eu-ccapi.*`) rather than the USA or Canada API paths. Because the EU login pages currently rely on browser/reCAPTCHA authentication, BlueBridge's EU login expects a valid 48-character EU refresh token in the password field instead of the normal account password.
+
+Implemented EU features are experimental and include:
+
+- Refresh-token based sign-in
+- Vehicle list
+- Cached and live status refresh
+- Lock / unlock through the EU control-token flow when a PIN is stored
+- Climate start / stop for supported vehicles
+- EV charge start / stop for supported vehicles
+
+Known EU limitations:
+
+- The app does not yet generate the EU refresh token internally.
+- Horn/lights and charge-target editing are not mapped yet.
+- Location parsing is not surfaced in the BlueBridge UI model yet.
+- Endpoint behavior can vary between Hyundai, Kia, Genesis, and CCS2-capable vehicles.
+
 ## Regional Configuration
 
 In the app go to **Settings → Region & Brand** and select:
@@ -97,8 +118,13 @@ In the app go to **Settings → Region & Brand** and select:
 | Canada — Hyundai | Canadian Bluelink via `mybluelink.ca` TODS API |
 | Canada — Kia | Canadian Kia Connect via `kiaconnect.ca` TODS API |
 | Canada — Genesis | Canadian Genesis Connect via `genesisconnect.ca` TODS API |
-| Europe | EU Hyundai/Kia |
-| Australia / NZ | AUS Hyundai/Kia |
+| Europe — Hyundai | EU Hyundai Bluelink accounts. Uses EU CCSP refresh-token login. |
+| Europe — Kia | EU Kia Connect accounts. Uses EU CCSP refresh-token login. |
+| Europe — Genesis | EU Genesis accounts. Uses EU CCSP refresh-token login. |
+| Australia — Hyundai | Australian Hyundai Bluelink accounts |
+| Australia — Kia | Australian Kia Connect accounts |
+| New Zealand — Kia | New Zealand Kia Connect accounts |
+| Australia / NZ | Legacy/default Australian Hyundai selection |
 
 ## Security & Privacy
 
@@ -143,6 +169,16 @@ Implemented Canadian flows:
 Canadian OTP/MFA endpoints are present in the API layer, but the login screen does not yet expose an OTP entry flow. If the server returns an OTP-required response for a new device, BlueBridge shows a clear message asking the user to authenticate once in the official Canadian app or web portal before trying again.
 
 Currently not mapped for Canada: horn/lights, vehicle location, and charge-target editing.
+
+## Australia / New Zealand Vehicle Support
+
+Australia/New Zealand support is experimental and uses the regional CCSP API hosts documented by the public Hyundai-Kia-Connect API work:
+
+- Hyundai Australia: `au-apigw.ccs.hyundai.com.au:8080`
+- Kia Australia: `au-apigw.ccs.kia.com.au:8082`
+- Kia New Zealand: `au-apigw.ccs.kia.com.au:8082` with the New Zealand Kia service identifiers
+
+Mapped features include login, vehicle list, cached/live vehicle status, lock/unlock attempts, climate start/stop attempts, and EV charge start/stop attempts. Status reads are the most likely to work consistently. Command support can vary by vehicle, account, market, and API permission state, so treat Australian/NZ commands as experimental until verified on real vehicles.
 
 ## Architecture
 
