@@ -10,6 +10,8 @@ import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -29,9 +31,11 @@ import androidx.compose.ui.text.input.*
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.bluebridge.android.data.api.Region
 import com.bluebridge.android.ui.theme.*
 import com.bluebridge.android.viewmodel.AuthViewModel
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LoginScreen(
     authViewModel: AuthViewModel,
@@ -39,6 +43,7 @@ fun LoginScreen(
 ) {
     val uiState by authViewModel.loginUiState.collectAsStateWithLifecycle()
     val biometricLoginAvailable by authViewModel.biometricLoginAvailable.collectAsStateWithLifecycle()
+    val selectedRegionName by authViewModel.region.collectAsStateWithLifecycle()
     val focusManager = LocalFocusManager.current
     val context = LocalContext.current
     val activity = remember(context) { context.findFragmentActivity() }
@@ -49,6 +54,10 @@ fun LoginScreen(
     var passwordVisible by remember { mutableStateOf(false) }
     var saveForBiometrics by remember { mutableStateOf(true) }
     var biometricPromptLaunched by remember { mutableStateOf(false) }
+    var regionMenuExpanded by remember { mutableStateOf(false) }
+    val selectedRegion = remember(selectedRegionName) {
+        runCatching { Region.valueOf(selectedRegionName) }.getOrDefault(Region.US_HYUNDAI)
+    }
 
     fun launchBiometricLogin() {
         val fragmentActivity = activity
@@ -94,6 +103,7 @@ fun LoginScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .verticalScroll(rememberScrollState())
                 .padding(32.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
@@ -118,7 +128,66 @@ fun LoginScreen(
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
             )
 
-            Spacer(Modifier.height(48.dp))
+            Spacer(Modifier.height(32.dp))
+
+            ExposedDropdownMenuBox(
+                expanded = regionMenuExpanded,
+                onExpandedChange = { regionMenuExpanded = !regionMenuExpanded },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                OutlinedTextField(
+                    value = selectedRegion.label,
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Region & Brand") },
+                    leadingIcon = { Icon(Icons.Filled.Public, contentDescription = null) },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = regionMenuExpanded) },
+                    singleLine = true,
+                    modifier = Modifier
+                        .menuAnchor()
+                        .fillMaxWidth(),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        focusedLabelColor = MaterialTheme.colorScheme.primary,
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
+                        unfocusedBorderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
+                        unfocusedLabelColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                        cursorColor = MaterialTheme.colorScheme.primary
+                    )
+                )
+
+                ExposedDropdownMenu(
+                    expanded = regionMenuExpanded,
+                    onDismissRequest = { regionMenuExpanded = false }
+                ) {
+                    Region.entries.forEach { region ->
+                        DropdownMenuItem(
+                            text = { Text(region.label) },
+                            onClick = {
+                                authViewModel.setRegion(region)
+                                regionMenuExpanded = false
+                            },
+                            leadingIcon = {
+                                if (region == selectedRegion) {
+                                    Icon(Icons.Filled.Check, contentDescription = null)
+                                }
+                            }
+                        )
+                    }
+                }
+            }
+
+            Text(
+                text = "Choose this before signing in. Different regions use different Hyundai/Kia services.",
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 6.dp)
+            )
+
+            Spacer(Modifier.height(16.dp))
 
             // Email field
             OutlinedTextField(

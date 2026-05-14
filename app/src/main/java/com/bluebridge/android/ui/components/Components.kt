@@ -13,6 +13,9 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
+private val SeatHeatOrange = Color(0xFFFF9800)
+private val SeatVentBlue = Color(0xFF03A9F4)
+
 // ── Section card wrapper ──────────────────────────────────────────────────────
 
 @Composable
@@ -95,8 +98,8 @@ fun SeatHeatSelector(
                 seatClimateLabel(value),
                 style = MaterialTheme.typography.labelMedium,
                 color = when (value) {
-                    6, 7, 8 -> Color(0xFFFFB74D)
-                    3, 4, 5 -> Color(0xFF4FC3F7)
+                    6, 7, 8 -> SeatHeatOrange
+                    3, 4, 5 -> SeatVentBlue
                     else -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f)
                 },
                 fontWeight = FontWeight.SemiBold
@@ -125,13 +128,13 @@ fun SeatHeatSelector(
                     label = { Text(lbl, style = MaterialTheme.typography.labelSmall) },
                     colors = FilterChipDefaults.filterChipColors(
                         selectedContainerColor = when (level) {
-                            6, 7, 8 -> Color(0xFFFFB74D).copy(alpha = 0.25f)
-                            3, 4, 5 -> Color(0xFF4FC3F7).copy(alpha = 0.25f)
+                            6, 7, 8 -> SeatHeatOrange.copy(alpha = 0.25f)
+                            3, 4, 5 -> SeatVentBlue.copy(alpha = 0.25f)
                             else -> MaterialTheme.colorScheme.surfaceVariant
                         },
                         selectedLabelColor = when (level) {
-                            6, 7, 8 -> Color(0xFFFFCC80)
-                            3, 4, 5 -> Color(0xFF81D4FA)
+                            6, 7, 8 -> SeatHeatOrange
+                            3, 4, 5 -> SeatVentBlue
                             else -> MaterialTheme.colorScheme.onSurface
                         }
                     )

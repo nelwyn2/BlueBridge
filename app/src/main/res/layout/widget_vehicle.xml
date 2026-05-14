@@ -5,7 +5,7 @@
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:background="@drawable/widget_background"
-    android:padding="7dp">
+    android:padding="6dp">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -34,7 +34,7 @@
             android:gravity="center"
             android:paddingStart="8dp"
             android:paddingEnd="8dp"
-            android:text="—"
+            android:text="Doors Locked"
             android:textColor="#FFB000"
             android:textSize="9sp"
             android:textStyle="bold"
@@ -46,19 +46,19 @@
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:layout_marginTop="4dp"
+        android:layout_marginTop="3dp"
         android:orientation="vertical">
 
         <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="56dp"
+            android:layout_height="52dp"
             android:orientation="horizontal"
             android:background="@drawable/widget_battery_panel_background"
             android:gravity="center_vertical"
-            android:padding="7dp">
+            android:padding="6dp">
 
             <LinearLayout
-                android:layout_width="72dp"
+                android:layout_width="74dp"
                 android:layout_height="match_parent"
                 android:orientation="vertical"
                 android:gravity="center_vertical">
@@ -88,7 +88,7 @@
                     android:includeFontPadding="false" />
             </LinearLayout>
 
-            <TextView android:layout_width="7dp" android:layout_height="1dp" android:text="" />
+            <TextView android:layout_width="6dp" android:layout_height="1dp" android:text="" />
 
             <LinearLayout
                 android:layout_width="0dp"
@@ -134,7 +134,7 @@
                     style="?android:attr/progressBarStyleHorizontal"
                     android:layout_width="match_parent"
                     android:layout_height="7dp"
-                    android:layout_marginTop="4dp"
+                    android:layout_marginTop="3dp"
                     android:indeterminate="true"
                     android:max="100"
                     android:progress="0"
@@ -144,7 +144,7 @@
                     android:id="@+id/widget_battery_substatus"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
+                    android:layout_marginTop="3dp"
                     android:text="All Systems Normal"
                     android:textColor="#E8EDF5"
                     android:textSize="8sp"
@@ -158,7 +158,7 @@
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_weight="1"
-            android:layout_marginTop="4dp"
+            android:layout_marginTop="3dp"
             android:orientation="vertical">
 
             <LinearLayout
@@ -173,18 +173,18 @@
                     android:layout_height="match_parent"
                     android:layout_weight="1"
                     android:background="@drawable/widget_battery_panel_background"
-                    android:gravity="center_vertical"
+                    android:gravity="center"
                     android:paddingStart="6dp"
                     android:paddingEnd="6dp"
                     android:text="All Systems Normal"
                     android:textColor="#AFC7FF"
-                    android:textSize="8sp"
+                    android:textSize="11sp"
                     android:textStyle="bold"
                     android:maxLines="2"
                     android:ellipsize="end"
                     android:includeFontPadding="false" />
 
-                <TextView android:layout_width="5dp" android:layout_height="1dp" android:text="" />
+                <TextView android:layout_width="4dp" android:layout_height="1dp" android:text="" />
 
                 <TextView
                     android:id="@+id/widget_detail_one"
@@ -192,30 +192,12 @@
                     android:layout_height="match_parent"
                     android:layout_weight="1"
                     android:background="@drawable/widget_battery_panel_background"
-                    android:gravity="center_vertical"
+                    android:gravity="center"
                     android:paddingStart="6dp"
                     android:paddingEnd="6dp"
-                    android:text="Closed"
+                    android:text="Doors/Hood/Trunk Closed"
                     android:textColor="#E8EDF5"
-                    android:textSize="7sp"
-                    android:maxLines="2"
-                    android:ellipsize="end"
-                    android:includeFontPadding="false" />
-
-                <TextView android:layout_width="5dp" android:layout_height="1dp" android:text="" />
-
-                <TextView
-                    android:id="@+id/widget_detail_two"
-                    android:layout_width="0dp"
-                    android:layout_height="match_parent"
-                    android:layout_weight="1"
-                    android:background="@drawable/widget_battery_panel_background"
-                    android:gravity="center_vertical"
-                    android:paddingStart="6dp"
-                    android:paddingEnd="6dp"
-                    android:text="Climate"
-                    android:textColor="#E8EDF5"
-                    android:textSize="7sp"
+                    android:textSize="11sp"
                     android:maxLines="2"
                     android:ellipsize="end"
                     android:includeFontPadding="false" />
@@ -225,8 +207,26 @@
                 android:layout_width="match_parent"
                 android:layout_height="0dp"
                 android:layout_weight="1"
-                android:layout_marginTop="4dp"
+                android:layout_marginTop="3dp"
                 android:orientation="horizontal">
+
+                <TextView
+                    android:id="@+id/widget_detail_two"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:background="@drawable/widget_battery_panel_background"
+                    android:gravity="center"
+                    android:paddingStart="6dp"
+                    android:paddingEnd="6dp"
+                    android:text="Climate Control Off"
+                    android:textColor="#E8EDF5"
+                    android:textSize="11sp"
+                    android:maxLines="2"
+                    android:ellipsize="end"
+                    android:includeFontPadding="false" />
+
+                <TextView android:layout_width="4dp" android:layout_height="1dp" android:text="" />
 
                 <TextView
                     android:id="@+id/widget_detail_three"
@@ -234,17 +234,23 @@
                     android:layout_height="match_parent"
                     android:layout_weight="1"
                     android:background="@drawable/widget_battery_panel_background"
-                    android:gravity="center_vertical"
+                    android:gravity="center"
                     android:paddingStart="6dp"
                     android:paddingEnd="6dp"
-                    android:text="Alerts"
+                    android:text="No Vehicle Alerts"
                     android:textColor="#E8EDF5"
-                    android:textSize="7sp"
+                    android:textSize="11sp"
                     android:maxLines="2"
                     android:ellipsize="end"
                     android:includeFontPadding="false" />
+            </LinearLayout>
 
-                <TextView android:layout_width="5dp" android:layout_height="1dp" android:text="" />
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:layout_marginTop="3dp"
+                android:orientation="horizontal">
 
                 <TextView
                     android:id="@+id/widget_detail_four"
@@ -252,17 +258,17 @@
                     android:layout_height="match_parent"
                     android:layout_weight="1"
                     android:background="@drawable/widget_battery_panel_background"
-                    android:gravity="center_vertical"
+                    android:gravity="center"
                     android:paddingStart="6dp"
                     android:paddingEnd="6dp"
-                    android:text="Updated"
+                    android:text="Updated —"
                     android:textColor="#99FFFFFF"
-                    android:textSize="7sp"
+                    android:textSize="11sp"
                     android:maxLines="2"
                     android:ellipsize="end"
                     android:includeFontPadding="false" />
 
-                <TextView android:layout_width="5dp" android:layout_height="1dp" android:text="" />
+                <TextView android:layout_width="4dp" android:layout_height="1dp" android:text="" />
 
                 <TextView
                     android:id="@+id/widget_updated"
@@ -270,12 +276,12 @@
                     android:layout_height="match_parent"
                     android:layout_weight="1"
                     android:background="@drawable/widget_battery_panel_background"
-                    android:gravity="center_vertical"
+                    android:gravity="center"
                     android:paddingStart="6dp"
                     android:paddingEnd="6dp"
-                    android:text="Open app"
+                    android:text="Doors Locked"
                     android:textColor="#99FFFFFF"
-                    android:textSize="7sp"
+                    android:textSize="11sp"
                     android:maxLines="2"
                     android:ellipsize="end"
                     android:includeFontPadding="false" />
@@ -288,66 +294,66 @@
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="bottom"
-        android:layout_marginTop="4dp">
+        android:layout_marginTop="3dp">
 
         <TextView
             android:id="@+id/widget_refresh_button"
             android:layout_width="0dp"
-            android:layout_height="36dp"
+            android:layout_height="52dp"
             android:layout_weight="1"
             android:background="@drawable/widget_action_background"
             android:gravity="center"
             android:text="Refresh"
             android:textColor="#FFFFFF"
-            android:textSize="11sp"
+            android:textSize="14sp"
             android:textStyle="bold"
             android:maxLines="1"
             android:includeFontPadding="false" />
 
-        <TextView android:layout_width="5dp" android:layout_height="1dp" android:text="" />
+        <TextView android:layout_width="4dp" android:layout_height="1dp" android:text="" />
 
         <TextView
             android:id="@+id/widget_lock_button"
             android:layout_width="0dp"
-            android:layout_height="36dp"
+            android:layout_height="52dp"
             android:layout_weight="1"
             android:background="@drawable/widget_action_background"
             android:gravity="center"
             android:text="Lock"
             android:textColor="#FFFFFF"
-            android:textSize="11sp"
+            android:textSize="14sp"
             android:textStyle="bold"
             android:maxLines="1"
             android:includeFontPadding="false" />
 
-        <TextView android:layout_width="5dp" android:layout_height="1dp" android:text="" />
+        <TextView android:layout_width="4dp" android:layout_height="1dp" android:text="" />
 
         <TextView
             android:id="@+id/widget_unlock_button"
             android:layout_width="0dp"
-            android:layout_height="36dp"
+            android:layout_height="52dp"
             android:layout_weight="1"
             android:background="@drawable/widget_action_background"
             android:gravity="center"
             android:text="Unlock"
             android:textColor="#FFFFFF"
-            android:textSize="11sp"
+            android:textSize="14sp"
             android:textStyle="bold"
             android:maxLines="1"
             android:includeFontPadding="false" />
 
-        <TextView android:layout_width="5dp" android:layout_height="1dp" android:text="" />
+        <TextView android:layout_width="4dp" android:layout_height="1dp" android:text="" />
 
         <TextView
             android:id="@+id/widget_climate_button"
             android:layout_width="0dp"
-            android:layout_height="36dp"
+            android:layout_height="52dp"
             android:layout_weight="1"
             android:background="@drawable/widget_action_background"
             android:gravity="center"
             android:text="Climate"
             android:textColor="#FFFFFF"
-            android:textSize="11sp"
+            android:textSize="14sp"
             android:textStyle="bold"
             android:maxLines="1"
             android:includeFontPadding="false" />

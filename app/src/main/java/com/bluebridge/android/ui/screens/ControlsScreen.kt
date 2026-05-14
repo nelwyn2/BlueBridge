@@ -27,6 +27,7 @@ fun ControlsScreen(
     val status by vehicleViewModel.vehicleStatus.collectAsStateWithLifecycle()
     val vehicle by vehicleViewModel.selectedVehicle.collectAsStateWithLifecycle()
     val isEV = vehicle?.isEV == true
+    val temperatureUnit by vehicleViewModel.temperatureUnit.collectAsStateWithLifecycle()
     var pendingConfirmation by remember { mutableStateOf<ControlsConfirmationRequest?>(null) }
 
     Scaffold(
@@ -140,7 +141,7 @@ fun ControlsScreen(
             // ─── Climate ───────────────────────────────────────────────────────
             ControlSection(title = if (isEV) "EV Climate Preconditioning" else "Climate Settings") {
                 var defrost by remember { mutableStateOf(false) }
-                var tempF by remember { mutableFloatStateOf(72f) }
+                var displayTemp by remember(temperatureUnit) { mutableFloatStateOf(climateDisplayValueFromF("72", temperatureUnit).toFloat()) }
 
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Row(
@@ -150,17 +151,17 @@ fun ControlsScreen(
                     ) {
                         Text("Temperature", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
                         Text(
-                            "${tempF.toInt()}°F",
+                            "${displayTemp.toInt()}°${temperatureUnit}",
                             style = MaterialTheme.typography.titleMedium,
                             color = MaterialTheme.colorScheme.primary,
                             fontWeight = FontWeight.Bold
                         )
                     }
                     Slider(
-                        value = tempF,
-                        onValueChange = { tempF = it },
-                        valueRange = 62f..82f,
-                        steps = 19,
+                        value = displayTemp,
+                        onValueChange = { displayTemp = it },
+                        valueRange = climateSliderRange(temperatureUnit),
+                        steps = climateSliderSteps(temperatureUnit),
                         colors = SliderDefaults.colors(thumbColor = MaterialTheme.colorScheme.primary, activeTrackColor = MaterialTheme.colorScheme.primary)
                     )
 
@@ -177,17 +178,18 @@ fun ControlsScreen(
                     ) {
                         Button(
                             onClick = {
-                                val selectedTemp = tempF.toInt()
+                                val selectedDisplayTemp = displayTemp.toInt()
+                                val selectedTempF = climateFahrenheitFromDisplay(selectedDisplayTemp, temperatureUnit)
                                 val selectedDefrost = defrost
                                 pendingConfirmation = ControlsConfirmationRequest(
                                     title = "Start climate?",
                                     message = buildString {
-                                        append("Start cabin climate at ${selectedTemp}°F")
+                                        append("Start cabin climate at ${selectedDisplayTemp}°${temperatureUnit}")
                                         if (selectedDefrost) append(" with defrost")
                                         append("?")
                                     },
                                     confirmLabel = "Start Climate",
-                                    action = { vehicleViewModel.startClimate(selectedTemp.toString(), selectedDefrost) }
+                                    action = { vehicleViewModel.startClimate(selectedTempF.toString(), selectedDefrost) }
                                 )
                             },
                             modifier = Modifier.weight(1f),

@@ -25,6 +25,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.LocalContext
 
+private val SeatHeatOrange = Color(0xFFFF9800)
+private val SeatVentBlue = Color(0xFF03A9F4)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SeatClimatePresetsScreen(
@@ -342,8 +345,8 @@ private fun presetSeatLabel(value: Int): String = when (value) {
 
 @Composable
 private fun presetSeatColor(value: Int): Color = when (value) {
-    6, 7, 8 -> Color(0xFFFFB74D)
-    3, 4, 5 -> Color(0xFF4FC3F7)
+    6, 7, 8 -> SeatHeatOrange
+    3, 4, 5 -> SeatVentBlue
     else -> MaterialTheme.colorScheme.onSurfaceVariant
 }
 

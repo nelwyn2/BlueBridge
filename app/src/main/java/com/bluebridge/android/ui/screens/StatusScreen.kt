@@ -24,6 +24,9 @@ import com.bluebridge.android.data.models.*
 import com.bluebridge.android.ui.theme.*
 import com.bluebridge.android.viewmodel.VehicleViewModel
 
+private val SeatHeatOrange = Color(0xFFFF9800)
+private val SeatVentBlue = Color(0xFF03A9F4)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StatusScreen(
@@ -35,6 +38,7 @@ fun StatusScreen(
     val commandState by vehicleViewModel.commandState.collectAsStateWithLifecycle()
     val statusError by vehicleViewModel.statusError.collectAsStateWithLifecycle()
     val isLoading by vehicleViewModel.isStatusLoading.collectAsStateWithLifecycle()
+    val temperatureUnit by vehicleViewModel.temperatureUnit.collectAsStateWithLifecycle()
 
     Scaffold(
         topBar = {
@@ -138,7 +142,7 @@ fun StatusScreen(
                             if (s.airCtrlOn) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
                         s.airTemp?.let { temp ->
                             StatusRow(Icons.Filled.Thermostat, "Set Temperature",
-                                "${temp.value}°${if (temp.unit == 0) "F" else "C"}", MaterialTheme.colorScheme.onSurface)
+                                apiTemperatureToPreferredLabel(temp.value, temp.unit, temperatureUnit), MaterialTheme.colorScheme.onSurface)
                         }
                         StatusRow(Icons.Filled.AcUnit, "Defrost",
                             if (s.defrost) "On" else "Off",
@@ -549,9 +553,9 @@ private fun SeatCapabilityTile(
     val ventSupported = seatConfig?.ventCapable.isSupportedFlag()
     val anySupported = heatSupported || ventSupported
     val borderColor = when {
-        heatSupported && ventSupported -> MaterialTheme.colorScheme.primary.copy(alpha = 0.62f)
-        heatSupported -> WarningAmber.copy(alpha = 0.70f)
-        ventSupported -> MaterialTheme.colorScheme.tertiary.copy(alpha = 0.70f)
+        heatSupported && ventSupported -> SeatVentBlue.copy(alpha = 0.62f)
+        heatSupported -> SeatHeatOrange.copy(alpha = 0.70f)
+        ventSupported -> SeatVentBlue.copy(alpha = 0.70f)
         else -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.18f)
     }
 
@@ -590,13 +594,13 @@ private fun SeatCapabilityTile(
                 CapabilityPill(
                     label = "Heat",
                     supported = heatSupported,
-                    supportedColor = WarningAmber,
+                    supportedColor = SeatHeatOrange,
                     icon = Icons.Filled.Whatshot
                 )
                 CapabilityPill(
                     label = "Vent",
                     supported = ventSupported,
-                    supportedColor = MaterialTheme.colorScheme.tertiary,
+                    supportedColor = SeatVentBlue,
                     icon = Icons.Filled.AcUnit
                 )
             }
@@ -703,8 +707,8 @@ private fun seatLevelLabel(level: Int): String = when (level) {
 
 private fun seatLevelColor(level: Int): Color = when (level) {
     0, 2 -> Color(0xFFD0D6E0).copy(alpha = 0.5f)
-    6, 7, 8 -> WarningAmber
-    3, 4, 5 -> Color(0xFF40C4FF)
+    6, 7, 8 -> SeatHeatOrange
+    3, 4, 5 -> SeatVentBlue
     else -> Color(0xFFD0D6E0).copy(alpha = 0.75f)
 }
 

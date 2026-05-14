@@ -2,6 +2,7 @@ package com.bluebridge.android.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.bluebridge.android.data.api.Region
 import com.bluebridge.android.data.repository.PreferencesManager
 import com.bluebridge.android.data.repository.SecureCredentialsManager
 import com.bluebridge.android.data.repository.Result
@@ -27,6 +28,9 @@ class AuthViewModel @Inject constructor(
     val isLoggedIn: StateFlow<Boolean?> = preferencesManager.isLoggedIn
         .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
+    val region: StateFlow<String> = preferencesManager.region
+        .stateIn(viewModelScope, SharingStarted.Eagerly, Region.US_HYUNDAI.name)
+
     private val _loginUiState = MutableStateFlow(LoginUiState())
     val loginUiState: StateFlow<LoginUiState> = _loginUiState.asStateFlow()
 
@@ -49,6 +53,13 @@ class AuthViewModel @Inject constructor(
     ) { biometricAvailable, hasRecoverableSession ->
         biometricAvailable && hasRecoverableSession
     }.stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
+    fun setRegion(region: Region) {
+        viewModelScope.launch {
+            preferencesManager.setRegion(region.name)
+            _loginUiState.value = _loginUiState.value.copy(error = null)
+        }
+    }
 
     fun login(username: String, password: String, servicePin: String = "", saveForBiometrics: Boolean = true) {
         if (username.isBlank() || password.isBlank()) {

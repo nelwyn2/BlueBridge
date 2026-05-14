@@ -198,7 +198,7 @@ fun SettingsScreen(
             // ── About ─────────────────────────────────────────────────────────
             ControlSection(title = "About") {
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    SettingsInfoRow("Version", "1.05")
+                    SettingsInfoRow("Version", "1.1")
                     SettingsInfoRow("API", "Hyundai Bluelink / Kia Connect")
                     SettingsInfoRow("Credit", "Nelwyn99")
                     Spacer(Modifier.height(4.dp))

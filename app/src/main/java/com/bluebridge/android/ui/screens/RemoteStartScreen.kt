@@ -33,6 +33,7 @@ fun RemoteStartScreen(
     val commandState by vehicleViewModel.commandState.collectAsStateWithLifecycle()
     val vehicle by vehicleViewModel.selectedVehicle.collectAsStateWithLifecycle()
     val isEV = vehicle?.isEV == true
+    val temperatureUnit by vehicleViewModel.temperatureUnit.collectAsStateWithLifecycle()
 
     Scaffold(
         topBar = {
@@ -74,17 +75,17 @@ fun RemoteStartScreen(
                             ) {
                                 Text("Temperature", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
                                 Text(
-                                    "${localSettings.tempF}°F",
+                                    climateTemperatureLabelFromF(localSettings.tempF, temperatureUnit),
                                     style = MaterialTheme.typography.titleMedium,
                                     color = MaterialTheme.colorScheme.primary,
                                     fontWeight = FontWeight.Bold
                                 )
                             }
                             Slider(
-                                value = localSettings.tempF.toFloatOrNull() ?: 72f,
-                                onValueChange = { localSettings = localSettings.copy(tempF = it.toInt().toString()) },
-                                valueRange = 62f..82f,
-                                steps = 19,
+                                value = climateDisplayValueFromF(localSettings.tempF, temperatureUnit).toFloat(),
+                                onValueChange = { localSettings = localSettings.copy(tempF = climateFahrenheitFromDisplay(it.toInt(), temperatureUnit).toString()) },
+                                valueRange = climateSliderRange(temperatureUnit),
+                                steps = climateSliderSteps(temperatureUnit),
                                 colors = SliderDefaults.colors(thumbColor = MaterialTheme.colorScheme.primary, activeTrackColor = MaterialTheme.colorScheme.primary)
                             )
                         }

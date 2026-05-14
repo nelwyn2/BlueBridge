@@ -29,7 +29,8 @@ An unofficial, open-source Android app for controlling Hyundai and Kia vehicles 
 3. Wait for Gradle to sync and download dependencies (~2–3 min first time)
 4. Connect an Android device or start an emulator
 5. Click **Run ▶**
-6. Sign in with your existing Bluelink / Kia Connect email and password
+6. Select your **Region & Brand** on the login screen
+7. Sign in with your existing Bluelink / Kia Connect email and password
 
 ## Home Screen Widgets
 
@@ -80,6 +81,10 @@ Some Hyundai/Bluelink remote climate endpoints can return HTTP success with an e
 ### Widget refresh behavior
 
 Widget refresh buttons send a background status-refresh command through `VehicleWidgetProvider`. The widgets now show transient messages such as `Refreshing…` or `Sending lock…` immediately after a tap so it is clearer that the button press was received. Full-size widget controls also use larger touch targets for easier tapping.
+
+## First-Run Region Selection
+
+BlueBridge lets users choose their **Region & Brand** directly on the login screen before authentication. This is important because Hyundai/Kia accounts are region-specific and use different services in the USA, Canada, Europe, and Australia/NZ. The selected region is saved locally and is also available later under **Settings → Region & Brand**.
 
 ## Regional Configuration
 

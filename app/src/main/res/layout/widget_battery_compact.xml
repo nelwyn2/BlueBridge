@@ -5,7 +5,7 @@
     android:layout_height="match_parent"
     android:orientation="horizontal"
     android:background="@drawable/widget_dashboard_background"
-    android:padding="6dp"
+    android:padding="5dp"
     android:gravity="center_vertical">
 
     <LinearLayout
@@ -15,7 +15,10 @@
         android:layout_weight="1"
         android:orientation="vertical"
         android:background="@drawable/widget_battery_panel_background"
-        android:padding="7dp"
+        android:paddingStart="8dp"
+        android:paddingEnd="8dp"
+        android:paddingTop="5dp"
+        android:paddingBottom="5dp"
         android:gravity="center_vertical">
 
         <TextView
@@ -24,45 +27,46 @@
             android:layout_height="wrap_content"
             android:text="BlueBridge"
             android:textColor="#F0F4FA"
-            android:textSize="10sp"
+            android:textSize="9sp"
             android:textStyle="bold"
             android:maxLines="1"
-            android:ellipsize="end" />
+            android:ellipsize="end"
+            android:includeFontPadding="false" />
 
-        <LinearLayout
+        <TextView
+            android:id="@+id/widget_battery"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical">
+            android:layout_marginTop="1dp"
+            android:text="—"
+            android:textColor="#FFFFFF"
+            android:textSize="21sp"
+            android:textStyle="bold"
+            android:maxLines="1"
+            android:ellipsize="end"
+            android:gravity="center"
+            android:includeFontPadding="false" />
 
-            <TextView
-                android:id="@+id/widget_battery"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="—"
-                android:textColor="#FFFFFF"
-                android:textSize="22sp"
-                android:textStyle="bold"
-                android:maxLines="1" />
-
-            <TextView
-                android:id="@+id/widget_range"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="— mi"
-                android:textColor="#BFD0D6E0"
-                android:textSize="10sp"
-                android:textStyle="bold"
-                android:maxLines="1" />
-        </LinearLayout>
+        <TextView
+            android:id="@+id/widget_range"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="1dp"
+            android:gravity="center"
+            android:text="Range —"
+            android:textColor="#BFD0D6E0"
+            android:textSize="9sp"
+            android:textStyle="bold"
+            android:maxLines="1"
+            android:ellipsize="end"
+            android:includeFontPadding="false" />
 
         <ProgressBar
             android:id="@+id/widget_battery_progress"
             style="?android:attr/progressBarStyleHorizontal"
             android:layout_width="match_parent"
             android:layout_height="6dp"
-            android:layout_marginTop="1dp"
+            android:layout_marginTop="3dp"
             android:indeterminate="true"
             android:max="100"
             android:progress="0"
@@ -77,13 +81,13 @@
 
     <TextView
         android:id="@+id/widget_refresh_button"
-        android:layout_width="40dp"
+        android:layout_width="44dp"
         android:layout_height="match_parent"
         android:layout_marginStart="6dp"
         android:background="@drawable/widget_action_background"
         android:gravity="center"
         android:text="↻"
         android:textColor="#FFFFFF"
-        android:textSize="20sp"
+        android:textSize="22sp"
         android:textStyle="bold" />
 </LinearLayout>

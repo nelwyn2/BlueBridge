@@ -46,10 +46,14 @@ import com.bluebridge.android.ui.components.CommandStatusBanner
 import com.bluebridge.android.ui.theme.*
 import com.bluebridge.android.viewmodel.CommandStatus
 import com.bluebridge.android.viewmodel.VehicleViewModel
+
 import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+
+private val SeatHeatOrange = Color(0xFFFF9800)
+private val SeatVentBlue = Color(0xFF03A9F4)
 
 private const val DASHBOARD_REFRESH_INTERVAL_MS = 60_000L
 
@@ -76,6 +80,7 @@ fun DashboardScreen(
     val isStatusLoading by vehicleViewModel.isStatusLoading.collectAsStateWithLifecycle()
     val commandState by vehicleViewModel.commandState.collectAsStateWithLifecycle()
     val commandHistory by vehicleViewModel.commandHistory.collectAsStateWithLifecycle()
+    val temperatureUnit by vehicleViewModel.temperatureUnit.collectAsStateWithLifecycle()
     var pendingConfirmation by remember { mutableStateOf<DashboardConfirmationRequest?>(null) }
 
     LaunchedEffect(Unit) {
@@ -266,11 +271,12 @@ fun DashboardScreen(
                         DashboardClimateControls(
                             vehicle = selectedVehicle,
                             status = vehicleStatus,
+                            temperatureUnit = temperatureUnit,
                             onStartClimate = { tempF, defrost, driverSeat, passengerSeat, rearLeftSeat, rearRightSeat ->
                                 pendingConfirmation = DashboardConfirmationRequest(
                                     title = "Start climate?",
                                     message = buildString {
-                                        append("Start cabin climate at ${tempF}°F")
+                                        append("Start cabin climate at ${climateTemperatureLabelFromF(tempF.toString(), temperatureUnit)}")
                                         if (defrost) append(" with defrost")
                                         val seatSummary = listOf(
                                             "Driver" to driverSeat,
@@ -1368,6 +1374,7 @@ fun VehiclePickerDialog(
 fun DashboardClimateControls(
     vehicle: Vehicle?,
     status: VehicleStatusData?,
+    temperatureUnit: String,
     onStartClimate: (Int, Boolean, Int, Int, Int, Int) -> Unit,
     onStopClimate: () -> Unit,
     onManageSeatPresets: () -> Unit
@@ -1375,7 +1382,7 @@ fun DashboardClimateControls(
     val isEV = vehicle?.isEV == true
     val climateOn = status?.airCtrlOn == true
     var defrost by remember { mutableStateOf(false) }
-    var tempF by remember { mutableFloatStateOf(72f) }
+    var displayTemp by remember(temperatureUnit) { mutableFloatStateOf(climateDisplayValueFromF("72", temperatureUnit).toFloat()) }
     var driverSeat by remember { mutableIntStateOf(2) }
     var passengerSeat by remember { mutableIntStateOf(2) }
     var rearLeftSeat by remember { mutableIntStateOf(2) }
@@ -1456,17 +1463,17 @@ fun DashboardClimateControls(
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
-                    "${tempF.toInt()}°F",
+                    "${displayTemp.toInt()}°${temperatureUnit}",
                     fontSize = 20.sp,
                     fontWeight = FontWeight.ExtraBold,
                     color = MaterialTheme.colorScheme.primary
                 )
             }
             Slider(
-                value = tempF,
-                onValueChange = { tempF = it },
-                valueRange = 62f..82f,
-                steps = 19,
+                value = displayTemp,
+                onValueChange = { displayTemp = it },
+                valueRange = climateSliderRange(temperatureUnit),
+                steps = climateSliderSteps(temperatureUnit),
                 colors = SliderDefaults.colors(
                     thumbColor = MaterialTheme.colorScheme.primary,
                     activeTrackColor = MaterialTheme.colorScheme.primary
@@ -1521,7 +1528,7 @@ fun DashboardClimateControls(
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 Button(
-                    onClick = { onStartClimate(tempF.toInt(), defrost, driverSeat, passengerSeat, rearLeftSeat, rearRightSeat) },
+                    onClick = { onStartClimate(climateFahrenheitFromDisplay(displayTemp.toInt(), temperatureUnit), defrost, driverSeat, passengerSeat, rearLeftSeat, rearRightSeat) },
                     enabled = !climateOn,
                     modifier = Modifier.weight(1f),
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
@@ -1777,8 +1784,8 @@ private fun dashboardSeatClimateShortLabel(value: Int): String = when (value) {
 
 @Composable
 private fun dashboardSeatClimateColor(value: Int): Color = when (value) {
-    6, 7, 8 -> Color(0xFFFFB74D)
-    3, 4, 5 -> Color(0xFF4FC3F7)
+    6, 7, 8 -> SeatHeatOrange
+    3, 4, 5 -> SeatVentBlue
     else -> MaterialTheme.colorScheme.onSurfaceVariant
 }
 

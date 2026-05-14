@@ -304,6 +304,17 @@ class VehicleViewModel @Inject constructor(
         }
     }
 
+
+    private fun formatClimateHistoryTemp(tempF: String): String {
+        val fahrenheit = tempF.toIntOrNull() ?: return "${tempF}°F"
+        return if (temperatureUnit.value.equals("C", ignoreCase = true)) {
+            val celsius = ((fahrenheit - 32) * 5.0 / 9.0).roundToInt()
+            "${celsius}°C"
+        } else {
+            "${fahrenheit}°F"
+        }
+    }
+
     // ─── Climate ───────────────────────────────────────────────────────────────
     fun startClimate(
         tempF: String = "72",
@@ -316,7 +327,7 @@ class VehicleViewModel @Inject constructor(
         title = "Start climate",
         loadingMsg = "Sending climate start…",
         successMsg = "Climate on",
-        historyDetail = "Cabin ${tempF}°F${if (defrost) " · defrost" else ""}"
+        historyDetail = "Cabin ${formatClimateHistoryTemp(tempF)}${if (defrost) " · defrost" else ""}"
     ) {
         val vehicle = _selectedVehicle.value ?: return@sendCommand Result.Error("No vehicle selected")
         repository.startClimate(
