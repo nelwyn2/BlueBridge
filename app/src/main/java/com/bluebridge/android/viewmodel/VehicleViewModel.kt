@@ -84,6 +84,9 @@ class VehicleViewModel @Inject constructor(
     val temperatureUnit = preferencesManager.temperatureUnit
         .stateIn(viewModelScope, SharingStarted.Eagerly, "F")
 
+    val distanceUnit = preferencesManager.distanceUnit
+        .stateIn(viewModelScope, SharingStarted.Eagerly, "MI")
+
     val valetModeEnabled = preferencesManager.valetModeEnabled
         .stateIn(viewModelScope, SharingStarted.Eagerly, false)
 

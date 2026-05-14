@@ -23,6 +23,9 @@ class SettingsViewModel @Inject constructor(
     val temperatureUnit = preferencesManager.temperatureUnit
         .stateIn(viewModelScope, SharingStarted.Eagerly, "F")
 
+    val distanceUnit = preferencesManager.distanceUnit
+        .stateIn(viewModelScope, SharingStarted.Eagerly, "MI")
+
     val biometricEnabled = preferencesManager.biometricEnabled
         .stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
@@ -49,6 +52,10 @@ class SettingsViewModel @Inject constructor(
 
     fun setTemperatureUnit(unit: String) = viewModelScope.launch {
         preferencesManager.setTemperatureUnit(unit)
+    }
+
+    fun setDistanceUnit(unit: String) = viewModelScope.launch {
+        preferencesManager.setDistanceUnit(unit)
     }
 
     fun setBiometricEnabled(enabled: Boolean) = viewModelScope.launch {

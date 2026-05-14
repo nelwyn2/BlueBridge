@@ -104,12 +104,13 @@ open class VehicleWidgetProvider : AppWidgetProvider() {
             CoroutineScope(Dispatchers.IO).launch {
                 val preferencesManager = PreferencesManager(context.applicationContext)
                 val snapshot = preferencesManager.widgetVehicleSnapshot.first()
-                val views = buildViews(context, snapshot, kind)
+                val distanceUnit = preferencesManager.distanceUnit.first()
+                val views = buildViews(context, snapshot, kind, distanceUnit)
                 appWidgetManager.updateAppWidget(appWidgetId, views)
             }
         }
 
-        private fun buildViews(context: Context, snapshot: WidgetVehicleSnapshot, kind: WidgetKind): RemoteViews {
+        private fun buildViews(context: Context, snapshot: WidgetVehicleSnapshot, kind: WidgetKind, distanceUnit: String): RemoteViews {
             val views = RemoteViews(context.packageName, kind.layoutRes)
             val openPendingIntent = PendingIntent.getActivity(
                 context,
@@ -119,9 +120,9 @@ open class VehicleWidgetProvider : AppWidgetProvider() {
             )
 
             return when (kind) {
-                WidgetKind.FULL -> buildFullWidget(context, views, snapshot, openPendingIntent)
-                WidgetKind.BATTERY_COMPACT -> buildBatteryCompactWidget(context, views, snapshot, openPendingIntent)
-                WidgetKind.BATTERY_WIDE -> buildBatteryWideWidget(context, views, snapshot, openPendingIntent)
+                WidgetKind.FULL -> buildFullWidget(context, views, snapshot, openPendingIntent, distanceUnit)
+                WidgetKind.BATTERY_COMPACT -> buildBatteryCompactWidget(context, views, snapshot, openPendingIntent, distanceUnit)
+                WidgetKind.BATTERY_WIDE -> buildBatteryWideWidget(context, views, snapshot, openPendingIntent, distanceUnit)
                 WidgetKind.LOCK -> buildActionWidget(context, views, snapshot, "Lock", lockStatus(snapshot), ACTION_LOCK, 21, "Lock vehicle doors")
                 WidgetKind.UNLOCK -> buildActionWidget(context, views, snapshot, "Unlock", lockStatus(snapshot), ACTION_UNLOCK, 22, "Unlock vehicle doors")
                 WidgetKind.CLIMATE -> buildActionWidget(context, views, snapshot, "Climate", snapshot.chargingLabel.ifBlank { snapshot.message }, ACTION_CLIMATE, 23, "Start cabin climate")
@@ -134,12 +135,13 @@ open class VehicleWidgetProvider : AppWidgetProvider() {
             context: Context,
             views: RemoteViews,
             snapshot: WidgetVehicleSnapshot,
-            openPendingIntent: PendingIntent
+            openPendingIntent: PendingIntent,
+            distanceUnit: String
         ): RemoteViews {
             views.setOnClickPendingIntent(R.id.widget_root, openPendingIntent)
             views.setTextViewText(R.id.widget_vehicle_name, snapshot.vehicleName.ifBlank { "BlueBridge" })
             views.setTextViewText(R.id.widget_lock_status, verboseLockStatus(snapshot))
-            setBatteryViews(views, snapshot, includeBatteryPrefix = false)
+            setBatteryViews(views, snapshot, includeBatteryPrefix = false, distanceUnit = distanceUnit)
             views.setTextViewText(R.id.widget_battery_meta, compactUpdatedStatus(snapshot))
             views.setTextViewText(R.id.widget_battery_substatus, verboseBatterySubstatus(snapshot))
             views.setTextViewText(R.id.widget_charging, verboseChargeStatus(snapshot))
@@ -159,11 +161,12 @@ open class VehicleWidgetProvider : AppWidgetProvider() {
             context: Context,
             views: RemoteViews,
             snapshot: WidgetVehicleSnapshot,
-            openPendingIntent: PendingIntent
+            openPendingIntent: PendingIntent,
+            distanceUnit: String
         ): RemoteViews {
             views.setOnClickPendingIntent(R.id.widget_root, openPendingIntent)
             views.setTextViewText(R.id.widget_vehicle_name, snapshot.vehicleName.ifBlank { "BlueBridge" })
-            setBatteryViews(views, snapshot, includeBatteryPrefix = false)
+            setBatteryViews(views, snapshot, includeBatteryPrefix = false, distanceUnit = distanceUnit)
             views.setTextViewText(R.id.widget_updated, updatedStatus(snapshot))
             views.setOnClickPendingIntent(R.id.widget_refresh_button, widgetPendingIntent(context, ACTION_REFRESH, 30))
             views.setContentDescription(R.id.widget_refresh_button, "Refresh vehicle status")
@@ -174,11 +177,12 @@ open class VehicleWidgetProvider : AppWidgetProvider() {
             context: Context,
             views: RemoteViews,
             snapshot: WidgetVehicleSnapshot,
-            openPendingIntent: PendingIntent
+            openPendingIntent: PendingIntent,
+            distanceUnit: String
         ): RemoteViews {
             views.setOnClickPendingIntent(R.id.widget_root, openPendingIntent)
             views.setTextViewText(R.id.widget_vehicle_name, snapshot.vehicleName.ifBlank { "BlueBridge" })
-            setBatteryViews(views, snapshot, includeBatteryPrefix = false)
+            setBatteryViews(views, snapshot, includeBatteryPrefix = false, distanceUnit = distanceUnit)
             views.setTextViewText(R.id.widget_lock_status, lockStatus(snapshot))
             views.setTextViewText(R.id.widget_charging, compactChargeStatus(snapshot))
             setCompactDetailViews(views, snapshot)
@@ -261,17 +265,25 @@ open class VehicleWidgetProvider : AppWidgetProvider() {
                 .ifBlank { "Status —" }
         }
 
-        private fun setBatteryViews(views: RemoteViews, snapshot: WidgetVehicleSnapshot, includeBatteryPrefix: Boolean) {
+        private fun setBatteryViews(views: RemoteViews, snapshot: WidgetVehicleSnapshot, includeBatteryPrefix: Boolean, distanceUnit: String) {
             val batteryPercent = snapshot.batteryPercent?.coerceIn(0, 100)
             val batteryText = batteryPercent?.let { if (includeBatteryPrefix) "Battery $it%" else "$it%" }
                 ?: if (includeBatteryPrefix) "Battery —" else "—"
             views.setTextViewText(R.id.widget_battery, batteryText)
-            views.setTextViewText(R.id.widget_range, snapshot.rangeMiles?.let { "Range $it mi" } ?: "Range —")
+            views.setTextViewText(R.id.widget_range, snapshot.rangeMiles?.let { "Range ${formatWidgetDistance(it, distanceUnit)}" } ?: "Range —")
             views.setProgressBar(R.id.widget_battery_progress, 100, batteryPercent ?: 0, batteryPercent == null)
             views.setContentDescription(
                 R.id.widget_battery_progress,
                 batteryPercent?.let { "Vehicle battery $it percent" } ?: "Vehicle battery level unavailable"
             )
+        }
+
+        private fun formatWidgetDistance(miles: Int, distanceUnit: String): String {
+            return if (distanceUnit.equals("KM", ignoreCase = true)) {
+                "${(miles * 1.609344).roundToInt()} km"
+            } else {
+                "$miles mi"
+            }
         }
 
         private fun setDetailViews(views: RemoteViews, snapshot: WidgetVehicleSnapshot) {

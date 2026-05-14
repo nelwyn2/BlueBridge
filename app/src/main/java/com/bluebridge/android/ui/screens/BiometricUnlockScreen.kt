@@ -37,8 +37,10 @@ fun BiometricUnlockScreen(
     val activity = remember(context) { context.findFragmentActivity() }
     var message by remember { mutableStateOf<String?>(null) }
     var promptLaunched by remember { mutableStateOf(false) }
+    var promptInProgress by remember { mutableStateOf(false) }
 
     fun launchBiometricPrompt() {
+        if (isLoading || promptInProgress) return
         val fragmentActivity = activity
         if (fragmentActivity == null) {
             message = "Biometric unlock is unavailable in this activity."
@@ -73,12 +75,14 @@ fun BiometricUnlockScreen(
             object : BiometricPrompt.AuthenticationCallback() {
                 override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
                     super.onAuthenticationSucceeded(result)
+                    promptInProgress = false
                     message = null
                     onUnlocked()
                 }
 
                 override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
                     super.onAuthenticationError(errorCode, errString)
+                    promptInProgress = false
                     message = errString.toString()
                 }
 
@@ -103,11 +107,12 @@ fun BiometricUnlockScreen(
             .setNegativeButtonText("Use password")
             .build()
 
+        promptInProgress = true
         prompt.authenticate(promptInfo)
     }
 
-    LaunchedEffect(Unit) {
-        if (!promptLaunched) {
+    LaunchedEffect(isLoading) {
+        if (!isLoading && !promptLaunched) {
             promptLaunched = true
             launchBiometricPrompt()
         }

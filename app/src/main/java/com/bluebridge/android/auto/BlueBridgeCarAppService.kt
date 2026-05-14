@@ -96,6 +96,7 @@ private open class BlueBridgeAutoScreen(
 
         val vehicle = snap.vehicle
         val status = snap.status
+        val distanceUnit = runCatching { kotlinx.coroutines.runBlocking { preferencesManager.distanceUnit.first() } }.getOrDefault("MI")
         if (vehicle != null && status != null) {
             val ev = status.evStatus
             list.addItem(
@@ -109,7 +110,7 @@ private open class BlueBridgeAutoScreen(
             list.addItem(
                 Row.Builder()
                     .setTitle("Battery & Range")
-                    .addText("HV ${ev?.batteryStatus ?: 0}% · ${ev?.rangeMiles?.formatMiles() ?: "--"} mi")
+                    .addText("HV ${ev?.batteryStatus ?: 0}% · ${ev?.rangeMiles?.formatAutoDistance(distanceUnit) ?: "--"}")
                     .addText("12V ${status.battery?.batteryLevel?.let { "$it%" } ?: "--"}")
                     .build()
             )
@@ -141,7 +142,7 @@ private open class BlueBridgeAutoScreen(
             list.addItem(
                 Row.Builder()
                     .setTitle("Diagnostics")
-                    .addText("Odometer ${status.totalMileage} mi")
+                    .addText("Odometer ${status.totalMileage.formatAutoDistance(distanceUnit)}")
                     .addText("Preconditioning ${if (ev?.batteryPrecondition == true) "active" else "inactive"}")
                     .build()
             )
@@ -209,7 +210,13 @@ private open class BlueBridgeAutoScreen(
 
 private fun VehicleStatusData.lockLabel(): String = if (doorsLocked) "Locked" else "Unlocked"
 
-private fun Double.formatMiles(): String = String.format(Locale.US, "%.0f", this)
+private fun Double.formatAutoDistance(distanceUnit: String): String {
+    val value = if (distanceUnit.equals("KM", ignoreCase = true)) this * 1.609344 else this
+    val unit = if (distanceUnit.equals("KM", ignoreCase = true)) "km" else "mi"
+    return String.format(Locale.US, "%.0f %s", value, unit)
+}
+
+private fun Int.formatAutoDistance(distanceUnit: String): String = this.toDouble().formatAutoDistance(distanceUnit)
 
 private fun Long.formatAutoTime(): String {
     if (this <= 0L) return "--"

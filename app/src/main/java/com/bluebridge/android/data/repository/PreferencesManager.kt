@@ -39,6 +39,7 @@ class PreferencesManager @Inject constructor(
         val SELECTED_VIN = stringPreferencesKey("selected_vin")
         val REGION = stringPreferencesKey("region")
         val TEMPERATURE_UNIT = stringPreferencesKey("temp_unit")
+        val DISTANCE_UNIT = stringPreferencesKey("distance_unit")
         val BIOMETRIC_ENABLED = booleanPreferencesKey("biometric_enabled")
         val LAST_BIOMETRIC_UNLOCK_AT = longPreferencesKey("last_biometric_unlock_at")
         val LAST_STATUS_REFRESH = longPreferencesKey("last_status_refresh")
@@ -115,6 +116,10 @@ class PreferencesManager @Inject constructor(
     val temperatureUnit: Flow<String> = dataStore.data
         .catch { if (it is IOException) emit(emptyPreferences()) else throw it }
         .map { it[TEMPERATURE_UNIT] ?: "F" }
+
+    val distanceUnit: Flow<String> = dataStore.data
+        .catch { if (it is IOException) emit(emptyPreferences()) else throw it }
+        .map { it[DISTANCE_UNIT] ?: "MI" }
 
     val biometricEnabled: Flow<Boolean> = dataStore.data
         .catch { if (it is IOException) emit(emptyPreferences()) else throw it }
@@ -260,6 +265,10 @@ class PreferencesManager @Inject constructor(
 
     suspend fun setTemperatureUnit(unit: String) {
         dataStore.edit { it[TEMPERATURE_UNIT] = unit }
+    }
+
+    suspend fun setDistanceUnit(unit: String) {
+        dataStore.edit { it[DISTANCE_UNIT] = unit }
     }
 
     suspend fun setBiometricEnabled(enabled: Boolean) {

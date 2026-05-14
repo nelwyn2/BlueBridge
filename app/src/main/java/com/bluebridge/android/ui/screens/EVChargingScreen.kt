@@ -55,6 +55,7 @@ fun EVChargingScreen(
     val commandState by vehicleViewModel.commandState.collectAsStateWithLifecycle()
     val lastStatusRefresh by vehicleViewModel.lastStatusRefresh.collectAsStateWithLifecycle()
     val commandHistory by vehicleViewModel.commandHistory.collectAsStateWithLifecycle()
+    val distanceUnit by vehicleViewModel.distanceUnit.collectAsStateWithLifecycle()
     val evCommandHistory = commandHistory
         .filter { entry -> entry.title.contains("charge", ignoreCase = true) }
         .take(5)
@@ -221,7 +222,8 @@ fun EVChargingScreen(
                             evStatus = evStatus,
                             acTarget = reportedAcTarget,
                             dcTarget = reportedDcTarget,
-                            lastStatusRefresh = lastStatusRefresh
+                            lastStatusRefresh = lastStatusRefresh,
+                            distanceUnit = distanceUnit
                         )
 
                         evStatus.remainChargeTime.firstOrNull()?.time?.let { time ->
@@ -402,13 +404,14 @@ private fun EVChargingDetailGrid(
     evStatus: EVStatus,
     acTarget: Int?,
     dcTarget: Int?,
-    lastStatusRefresh: Long
+    lastStatusRefresh: Long,
+    distanceUnit: String
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
             EVDetailTile(
                 label = "Range",
-                value = if (evStatus.rangeMiles > 0) "${evStatus.rangeMiles.toInt()} mi" else "—",
+                value = formatDistanceFromMiles(evStatus.rangeMiles, distanceUnit),
                 icon = Icons.Filled.Route,
                 modifier = Modifier.weight(1f)
             )

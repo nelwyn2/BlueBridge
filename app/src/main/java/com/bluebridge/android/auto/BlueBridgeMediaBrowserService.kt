@@ -9,6 +9,7 @@ import android.support.v4.media.session.PlaybackStateCompat
 import androidx.media.MediaBrowserServiceCompat
 import com.bluebridge.android.data.models.Vehicle
 import com.bluebridge.android.data.models.VehicleStatusData
+import com.bluebridge.android.data.repository.PreferencesManager
 import com.bluebridge.android.data.repository.Result
 import com.bluebridge.android.data.repository.VehicleRepository
 import dagger.hilt.android.AndroidEntryPoint
@@ -16,6 +17,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.util.Locale
 import javax.inject.Inject
@@ -31,6 +33,7 @@ import javax.inject.Inject
 class BlueBridgeMediaBrowserService : MediaBrowserServiceCompat() {
 
     @Inject lateinit var vehicleRepository: VehicleRepository
+    @Inject lateinit var preferencesManager: PreferencesManager
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private lateinit var mediaSession: MediaSessionCompat
@@ -107,19 +110,20 @@ class BlueBridgeMediaBrowserService : MediaBrowserServiceCompat() {
             else -> null
         } ?: return mutableListOf(playableItem("status_empty", "Status unavailable", "No cached vehicle status"))
 
+        val distanceUnit = preferencesManager.distanceUnit.first()
         return when (group) {
-            StatusGroup.OVERVIEW -> overviewItems(vehicle, status)
+            StatusGroup.OVERVIEW -> overviewItems(vehicle, status, distanceUnit)
             StatusGroup.CHARGING -> chargingItems(status)
             StatusGroup.TIRES -> tireItems(status)
-            StatusGroup.DIAGNOSTICS -> diagnosticItems(vehicle, status)
+            StatusGroup.DIAGNOSTICS -> diagnosticItems(vehicle, status, distanceUnit)
         }
     }
 
-    private fun overviewItems(vehicle: Vehicle, status: VehicleStatusData): MutableList<MediaBrowserCompat.MediaItem> {
+    private fun overviewItems(vehicle: Vehicle, status: VehicleStatusData, distanceUnit: String): MutableList<MediaBrowserCompat.MediaItem> {
         val ev = status.evStatus
         return mutableListOf(
             playableItem("vehicle", vehicle.displayName.ifBlank { "Vehicle" }, "VIN • ${vehicle.vin.takeLast(6)}"),
-            playableItem("battery", "HV Battery", "${ev?.batteryStatus ?: 0}% • ${formatMiles(ev?.rangeMiles ?: status.dte?.value ?: 0.0)} mi"),
+            playableItem("battery", "HV Battery", "${ev?.batteryStatus ?: 0}% • ${formatDistance(ev?.rangeMiles ?: status.dte?.value ?: 0.0, distanceUnit)}"),
             playableItem("doors", "Doors", if (status.doorsLocked) "Locked" else "Unlocked"),
             playableItem("climate", "Climate", if (status.airCtrlOn) "On" else "Off"),
             playableItem("plug", "Plug", ev?.plugStatusLabel ?: "Unknown")
@@ -150,7 +154,7 @@ class BlueBridgeMediaBrowserService : MediaBrowserServiceCompat() {
         )
     }
 
-    private fun diagnosticItems(vehicle: Vehicle, status: VehicleStatusData): MutableList<MediaBrowserCompat.MediaItem> {
+    private fun diagnosticItems(vehicle: Vehicle, status: VehicleStatusData, distanceUnit: String): MutableList<MediaBrowserCompat.MediaItem> {
         val ev = status.evStatus
         val latestTireTime = listOfNotNull(
             status.tirePressureStatus?.frontLeftTime,
@@ -161,7 +165,7 @@ class BlueBridgeMediaBrowserService : MediaBrowserServiceCompat() {
 
         return mutableListOf(
             playableItem("battery_12v", "12V Battery", "${status.battery?.batteryLevel ?: 0}%"),
-            playableItem("odometer", "Odometer", "${status.totalMileage.takeIf { it > 0 } ?: vehicle.odometer} mi"),
+            playableItem("odometer", "Odometer", formatDistance((status.totalMileage.takeIf { it > 0 } ?: vehicle.odometer).toDouble(), distanceUnit)),
             playableItem("precondition", "Battery Preconditioning", if (ev?.batteryPrecondition == true) "Active" else "Inactive"),
             playableItem("v2l", "V2L / Discharge", if (ev?.batteryDisCharge == true) "Active" else "Inactive"),
             playableItem("last_update", "Last Update", latestTireTime ?: "Status loaded")
@@ -186,7 +190,11 @@ class BlueBridgeMediaBrowserService : MediaBrowserServiceCompat() {
         return MediaBrowserCompat.MediaItem(description, MediaBrowserCompat.MediaItem.FLAG_PLAYABLE)
     }
 
-    private fun formatMiles(value: Double): String = String.format(Locale.US, "%.0f", value)
+    private fun formatDistance(miles: Double, distanceUnit: String): String {
+        val value = if (distanceUnit.equals("KM", ignoreCase = true)) miles * 1.609344 else miles
+        val unit = if (distanceUnit.equals("KM", ignoreCase = true)) "km" else "mi"
+        return String.format(Locale.US, "%.0f %s", value, unit)
+    }
 
     private enum class StatusGroup { OVERVIEW, CHARGING, TIRES, DIAGNOSTICS }
 

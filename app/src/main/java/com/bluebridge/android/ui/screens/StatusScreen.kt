@@ -39,6 +39,7 @@ fun StatusScreen(
     val statusError by vehicleViewModel.statusError.collectAsStateWithLifecycle()
     val isLoading by vehicleViewModel.isStatusLoading.collectAsStateWithLifecycle()
     val temperatureUnit by vehicleViewModel.temperatureUnit.collectAsStateWithLifecycle()
+    val distanceUnit by vehicleViewModel.distanceUnit.collectAsStateWithLifecycle()
 
     Scaffold(
         topBar = {
@@ -208,7 +209,7 @@ fun StatusScreen(
                                 if (ev.batteryPlugin > 0) ChargingGreen else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
                             if (ev.rangeKm > 0) {
                                 StatusRow(Icons.Filled.Route, "EV Range",
-                                    "${ev.rangeMiles.toInt()} mi / ${ev.rangeKm.toInt()} km",
+                                    formatDistanceFromMiles(ev.rangeMiles, distanceUnit),
                                     MaterialTheme.colorScheme.onSurface)
                             }
                         }
@@ -437,7 +438,7 @@ fun StatusScreen(
                     ControlSection(title = "Odometer") {
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             StatusRow(Icons.Filled.Speed, "Total Mileage",
-                                "${s.totalMileage} mi", MaterialTheme.colorScheme.onSurface)
+                                formatOdometerFromMiles(s.totalMileage, distanceUnit), MaterialTheme.colorScheme.onSurface)
                             vehicle?.odometerUpdateDate?.takeIf { it.isNotBlank() }?.let { updated ->
                                 StatusRow(Icons.Filled.Info, "Odometer Updated", formatHyundaiDate(updated), MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f))
                             }

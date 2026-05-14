@@ -131,6 +131,13 @@ class MainActivity : FragmentActivity() {
                 biometricGateReady,
                 persistedLastBiometricUnlockAt
             ) {
+                fun navigateRoot(route: String) {
+                    if (navController.currentBackStackEntry?.destination?.route == route) return
+                    navController.navigate(route) {
+                        popUpTo(0) { inclusive = true }
+                    }
+                }
+
                 when (isLoggedIn) {
                     true -> {
                         biometricReauthInProgress = false
@@ -139,27 +146,19 @@ class MainActivity : FragmentActivity() {
                         }
 
                         if (biometricEnabled && !biometricUnlocked && !persistedBiometricSessionActive) {
-                            navController.navigate("biometric_unlock") {
-                                popUpTo(0) { inclusive = true }
-                            }
+                            navigateRoot("biometric_unlock")
                         } else {
-                            navController.navigate("dashboard") {
-                                popUpTo(0) { inclusive = true }
-                            }
+                            navigateRoot("dashboard")
                         }
                     }
 
                     false -> {
                         if (biometricSessionRecoveryAvailable || biometricReauthInProgress) {
-                            navController.navigate("biometric_unlock") {
-                                popUpTo(0) { inclusive = true }
-                            }
+                            navigateRoot("biometric_unlock")
                         } else {
                             biometricUnlocked = false
                             biometricReauthInProgress = false
-                            navController.navigate("login") {
-                                popUpTo(0) { inclusive = true }
-                            }
+                            navigateRoot("login")
                         }
                     }
 

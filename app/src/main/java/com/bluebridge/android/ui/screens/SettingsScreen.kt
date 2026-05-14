@@ -22,6 +22,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bluebridge.android.data.api.Region
@@ -30,6 +31,7 @@ import com.bluebridge.android.data.models.UiColorSlot
 import com.bluebridge.android.ui.components.ControlSection
 import com.bluebridge.android.ui.theme.*
 import com.bluebridge.android.viewmodel.SettingsViewModel
+import com.bluebridge.android.widget.VehicleWidgetProvider
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -40,11 +42,17 @@ fun SettingsScreen(
 ) {
     val region by viewModel.region.collectAsStateWithLifecycle()
     val tempUnit by viewModel.temperatureUnit.collectAsStateWithLifecycle()
+    val distanceUnit by viewModel.distanceUnit.collectAsStateWithLifecycle()
     val biometricEnabled by viewModel.biometricEnabled.collectAsStateWithLifecycle()
     val selectedThemeId by viewModel.appTheme.collectAsStateWithLifecycle()
     val uiColorOverrides by viewModel.uiColorOverrides.collectAsStateWithLifecycle()
     val servicePin by viewModel.servicePin.collectAsStateWithLifecycle()
     val selectedTheme = AppTheme.fromId(selectedThemeId)
+    val context = LocalContext.current
+
+    LaunchedEffect(distanceUnit) {
+        VehicleWidgetProvider.refreshAll(context)
+    }
 
     var showRegionPicker by remember { mutableStateOf(false) }
     var showThemePicker by remember { mutableStateOf(false) }
@@ -151,6 +159,42 @@ fun SettingsScreen(
 
                     HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f))
 
+                    // Distance unit toggle
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Filled.Route, null, tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f), modifier = Modifier.size(20.dp))
+                            Spacer(Modifier.width(12.dp))
+                            Text("Distance Unit", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+                        }
+                        Row {
+                            FilterChip(
+                                selected = distanceUnit == "MI",
+                                onClick = {
+                                    viewModel.setDistanceUnit("MI")
+                                    VehicleWidgetProvider.refreshAll(context)
+                                },
+                                label = { Text("mi") },
+                                modifier = Modifier.padding(end = 6.dp)
+                            )
+                            FilterChip(
+                                selected = distanceUnit == "KM",
+                                onClick = {
+                                    viewModel.setDistanceUnit("KM")
+                                    VehicleWidgetProvider.refreshAll(context)
+                                },
+                                label = { Text("km") }
+                            )
+                        }
+                    }
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f))
+
                     // Biometric
                     Row(
                         modifier = Modifier
@@ -198,7 +242,7 @@ fun SettingsScreen(
             // ── About ─────────────────────────────────────────────────────────
             ControlSection(title = "About") {
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    SettingsInfoRow("Version", "1.11")
+                    SettingsInfoRow("Version", "1.12")
                     SettingsInfoRow("API", "Hyundai Bluelink / Kia Connect")
                     SettingsInfoRow("Credit", "Nelwyn99")
                     Spacer(Modifier.height(4.dp))

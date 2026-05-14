@@ -9,12 +9,14 @@ An unofficial, open-source Android app for controlling Hyundai and Kia vehicles 
 - ❄️ **Climate Control** — temperature, defrost, heated steering wheel, seat heat levels
 - 🔋 **EV Support** — battery status, start/stop charging, set AC & DC charge targets
 - 📍 **Vehicle Status** — doors, hood, trunk, tires, ignition, odometer
+- 🖼️ **Vehicle-specific dashboard images** — includes supported Hyundai and Kia models such as Venue, Seltos, Telluride, Carnival, Sorento, and Sportage
 - 🔔 **Horn & Lights** — panic button, flash lights only
 - 🌍 **Multi-region** — USA Hyundai, USA Kia, Canada, Europe, Australia/NZ
 - 🌑 **Dark-first Material 3 UI**
 - 🏠 **Home screen widgets** — full, battery, lock, unlock, climate, refresh, and compact controls widgets
 - 🔐 **Biometric lock** option
 - 🔑 **Secure token storage** via DataStore
+- 📏 **Unit preferences** — switch temperature between °F/°C and distance between miles/kilometers
 
 ## Requirements
 
@@ -31,6 +33,16 @@ An unofficial, open-source Android app for controlling Hyundai and Kia vehicles 
 5. Click **Run ▶**
 6. Select your **Region & Brand** on the login screen
 7. Sign in with your existing Bluelink / Kia Connect email and password
+
+
+## Unit Preferences
+
+In **Settings → Preferences**, BlueBridge supports:
+
+- **Temperature Unit**: Fahrenheit or Celsius
+- **Distance Unit**: miles or kilometers
+
+Distance preference affects dashboard range cards, EV charging range, vehicle status range, odometer display, widgets, and Android Auto read-only status views. Vehicle API data is still cached internally in miles where the source API reports miles, then converted only for display.
 
 ## Home Screen Widgets
 

@@ -81,6 +81,7 @@ fun DashboardScreen(
     val commandState by vehicleViewModel.commandState.collectAsStateWithLifecycle()
     val commandHistory by vehicleViewModel.commandHistory.collectAsStateWithLifecycle()
     val temperatureUnit by vehicleViewModel.temperatureUnit.collectAsStateWithLifecycle()
+    val distanceUnit by vehicleViewModel.distanceUnit.collectAsStateWithLifecycle()
     var pendingConfirmation by remember { mutableStateOf<DashboardConfirmationRequest?>(null) }
 
     LaunchedEffect(Unit) {
@@ -177,6 +178,7 @@ fun DashboardScreen(
                             vehicle = selectedVehicle,
                             status = vehicleStatus,
                             isLoading = isStatusLoading,
+                            distanceUnit = distanceUnit,
                             onRefresh = { vehicleViewModel.refreshStatus(forceFromServer = true) },
                             onTapDetails = onNavigateToStatus
                         )
@@ -469,6 +471,7 @@ fun VehicleStatusCard(
     vehicle: Vehicle?,
     status: VehicleStatusData?,
     isLoading: Boolean,
+    distanceUnit: String = "MI",
     onRefresh: () -> Unit,
     onTapDetails: () -> Unit
 ) {
@@ -598,6 +601,7 @@ fun VehicleStatusCard(
                             twelveVoltLevel = status.battery?.batteryLevel,
                             isCharging = isActivelyCharging,
                             rangeMiles = ev.rangeMiles,
+                            distanceUnit = distanceUnit,
                             chargingMethodLabel = if (isActivelyCharging) ev.chargingMethodLabel else null,
                             chargingSpeedLabel = chargingPowerKw?.let {
                                 "${String.format(java.util.Locale.US, "%.1f", it)} kW"
@@ -610,6 +614,7 @@ fun VehicleStatusCard(
                                 FuelStatusBar(
                                     fuelLevel = reportedFuelLevel,
                                     rangeMiles = dte.value,
+                                    distanceUnit = distanceUnit,
                                     label = if (reportedFuelLevel <= 10) "Low fuel" else "Fuel"
                                 )
                             } else {
@@ -622,7 +627,7 @@ fun VehicleStatusCard(
                                     )
                                     Spacer(Modifier.width(6.dp))
                                     Text(
-                                        "${dte.value.toInt()} mi range",
+                                        "${formatDistanceFromMiles(dte.value, distanceUnit)} range",
                                         fontSize = 16.sp,
                                         lineHeight = 18.sp,
                                         fontWeight = FontWeight.SemiBold,
@@ -701,6 +706,14 @@ private enum class DashboardVehicleImageProfile(
     ELANTRA(R.drawable.vehicle_elantra_blue, "Elantra"),
     SONATA(R.drawable.vehicle_sonata_white, "Sonata"),
     TUCSON(R.drawable.vehicle_tucson_red, "Tucson"),
+    VENUE(R.drawable.vehicle_venue_red, "Venue"),
+    KIA_K4(R.drawable.vehicle_kia_k4, "Kia K4"),
+    KIA_K5(R.drawable.vehicle_kia_k5, "Kia K5"),
+    KIA_SELTOS(R.drawable.vehicle_kia_seltos, "Kia Seltos"),
+    KIA_TELLURIDE(R.drawable.vehicle_kia_telluride, "Kia Telluride"),
+    KIA_CARNIVAL(R.drawable.vehicle_kia_carnival, "Kia Carnival"),
+    KIA_SORENTO(R.drawable.vehicle_kia_sorento, "Kia Sorento"),
+    KIA_SPORTAGE(R.drawable.vehicle_kia_sportage, "Kia Sportage"),
     SANTA_FE(R.drawable.vehicle_santa_fe_red, "Santa Fe"),
     PALISADE(R.drawable.vehicle_palisade_blue, "Palisade"),
     SANTA_CRUZ(R.drawable.vehicle_santa_cruz_blue, "Santa Cruz"),
@@ -743,6 +756,14 @@ private fun dashboardVehicleImageProfile(vehicle: Vehicle?): DashboardVehicleIma
         isPalisade(vin, modelText) -> DashboardVehicleImageProfile.PALISADE
         isSantaFe(vin, modelText) -> DashboardVehicleImageProfile.SANTA_FE
         isTucson(vin, modelText) -> DashboardVehicleImageProfile.TUCSON
+        isVenue(vin, modelText) -> DashboardVehicleImageProfile.VENUE
+        isKiaK4(vin, modelText) -> DashboardVehicleImageProfile.KIA_K4
+        isKiaK5(vin, modelText) -> DashboardVehicleImageProfile.KIA_K5
+        isKiaTelluride(vin, modelText) -> DashboardVehicleImageProfile.KIA_TELLURIDE
+        isKiaCarnival(vin, modelText) -> DashboardVehicleImageProfile.KIA_CARNIVAL
+        isKiaSorento(vin, modelText) -> DashboardVehicleImageProfile.KIA_SORENTO
+        isKiaSportage(vin, modelText) -> DashboardVehicleImageProfile.KIA_SPORTAGE
+        isKiaSeltos(vin, modelText) -> DashboardVehicleImageProfile.KIA_SELTOS
         isElantra(vin, modelText) -> DashboardVehicleImageProfile.ELANTRA
         isSonata(vin, modelText) -> DashboardVehicleImageProfile.SONATA
         modelText.contains("IONIQ", ignoreCase = true) || vehicle?.isEV == true -> DashboardVehicleImageProfile.GENERIC_EV
@@ -782,6 +803,38 @@ private fun isTucson(vin: String, modelText: String): Boolean =
 private fun isSantaFe(vin: String, modelText: String): Boolean =
     vehicleVinMatches(vin, setOf("KM8", "5NM", "5XY"), SANTA_FE_VDS_CODES) ||
             modelText.contains("SANTA FE", ignoreCase = true)
+
+private fun isVenue(vin: String, modelText: String): Boolean =
+    vehicleVinMatches(vin, setOf("KMH"), VENUE_VDS_CODES) ||
+            modelText.contains("VENUE", ignoreCase = true)
+
+private fun isKiaK4(vin: String, modelText: String): Boolean =
+    vehicleVinMatches(vin, KIA_WMI_PREFIXES, KIA_K4_VDS_CODES) ||
+            modelText.contains("K4", ignoreCase = true)
+
+private fun isKiaK5(vin: String, modelText: String): Boolean =
+    vehicleVinMatches(vin, KIA_WMI_PREFIXES, KIA_K5_VDS_CODES) ||
+            modelText.contains("K5", ignoreCase = true)
+
+private fun isKiaSeltos(vin: String, modelText: String): Boolean =
+    vehicleVinMatches(vin, KIA_WMI_PREFIXES, KIA_SELTOS_VDS_CODES) ||
+            modelText.contains("SELTOS", ignoreCase = true)
+
+private fun isKiaTelluride(vin: String, modelText: String): Boolean =
+    vehicleVinMatches(vin, KIA_WMI_PREFIXES, KIA_TELLURIDE_VDS_CODES) ||
+            modelText.contains("TELLURIDE", ignoreCase = true)
+
+private fun isKiaCarnival(vin: String, modelText: String): Boolean =
+    vehicleVinMatches(vin, KIA_WMI_PREFIXES, KIA_CARNIVAL_VDS_CODES) ||
+            modelText.contains("CARNIVAL", ignoreCase = true)
+
+private fun isKiaSorento(vin: String, modelText: String): Boolean =
+    vehicleVinMatches(vin, KIA_WMI_PREFIXES, KIA_SORENTO_VDS_CODES) ||
+            modelText.contains("SORENTO", ignoreCase = true)
+
+private fun isKiaSportage(vin: String, modelText: String): Boolean =
+    vehicleVinMatches(vin, KIA_WMI_PREFIXES, KIA_SPORTAGE_VDS_CODES) ||
+            modelText.contains("SPORTAGE", ignoreCase = true)
 
 private fun isPalisade(vin: String, modelText: String): Boolean =
     vehicleVinMatches(vin, setOf("KM8"), PALISADE_VDS_CODES) ||
@@ -825,6 +878,56 @@ private val TUCSON_VDS_CODES = setOf(
     "JBDA2", "JBCA1", "JECAE", "JA3AE", "JB3AE", "JECA1", "JF3AE", "JCCAE", "JBCDE", "JF3DE",
     "JB3DE", "JFCDE", "JA3DE", "JBCD1", "JBDD2", "JE3DE", "JCCDE", "JECD1", "JACDE", "JECDE",
     "JFCD1", "JCCD1"
+)
+
+private val VENUE_VDS_CODES = setOf(
+    "RB8A3", "RC8A3"
+)
+
+private val KIA_WMI_PREFIXES = setOf(
+    "KNA", "KND", "KNM", "5XY", "5XX"
+)
+
+private val KIA_K4_VDS_CODES = setOf(
+    "F34AD", "F54AD", "F24AD", "F44AC"
+)
+
+private val KIA_K5_VDS_CODES = setOf(
+    "G44J8", "G14J2", "G34J2", "G24J2", "G64J2", "G64A2"
+)
+
+private val KIA_SELTOS_VDS_CODES = setOf(
+    "ERCAA", "ETCA2", "EUCA2", "EUCAA", "EU2AA", "EPCAA", "EP2AA", "ER2AA", "EUCA7", "ETCA7"
+)
+
+private val KIA_TELLURIDE_VDS_CODES = setOf(
+    "P64HC", "P54HC", "P24HC", "P2DHC", "P5DHC", "P34HC", "P3DHC", "P6DHC", "P54GC", "P2DGC",
+    "P64GC", "P6DGC", "P3DGC", "P5DGC", "P24GC", "P34GC"
+)
+
+private val KIA_CARNIVAL_VDS_CODES = setOf(
+    "NB5H3", "NB4H3", "NC5H3", "NE5H3"
+)
+
+private val KIA_SORENTO_VDS_CODES = setOf(
+    "JC733", "JD733", "JD736", "JC736", "JD735", "JC735", "KUDA2", "KU4A1", "KUDA1", "KU4A2",
+    "KTDA1", "KU3A1", "KWDA2", "KT4A1", "KT3A1", "KT4A2", "KTCA1", "KTDA2", "KUCA1", "KW4A2",
+    "KT3A2", "KTCA6", "KTDA6", "KUCA6", "KT4A6", "KUDA6", "KU3A6", "KT3A6", "KU4A6", "KU3A2",
+    "KUDA7", "KU4A7", "KW4A7", "KT4A7", "KWDA7", "KTDA7", "PG4A3", "PK4A1", "PK4A5", "PGDA3",
+    "PH4A5", "PG4A5", "PHDA1", "PH4A1", "PKDA1", "PGDA1", "PKDA5", "PGDA5", "PHDA5", "PHDA3",
+    "RG4LC", "RK4LF", "RKDLF", "RL4LC", "RGDLF", "RGDLC", "RH4LG", "RG4LG", "RH4LF", "RLDLC",
+    "RHDLF", "RGDCG", "RJDLH", "RHDCF", "RGDLG", "RKDCF", "RMDLH", "RHDLG", "RMDLG", "RKDLG"
+)
+
+private val KIA_SPORTAGE_VDS_CODES = setOf(
+    "JA721", "JB723", "JA723", "JB623", "JA623", "JF724", "JF723", "JE724", "JE723", "JF722",
+    "KH3A3", "KG3A3", "KGCA3", "KGCA4", "KG3A4", "KHCA3", "PCCA6", "PC3A6", "PC3A2", "PCCA2",
+    "PBCA2", "PB3A2", "PC3AC", "PCCAC", "PBCAC", "PB3AC", "PMCAC", "PR3A6", "PRCA6", "PM3AC",
+    "PR3NC", "PNCAC", "PN3AC", "P63AC", "P6CAC", "K43AF", "PXCAG", "K4CAF", "PVCAF", "K33AF",
+    "PU3AG", "K7CAF", "K3CAF", "PUCAG", "K2CAF", "PVCAG", "PV3AF", "PYDAH", "PU3AF", "K5CAF",
+    "K53AF", "K23AF", "PZDAH", "K6CAF", "PUCAF", "PV3DF", "K3CDF", "PXCDG", "PU3DF", "PVCDG",
+    "K33DF", "K53DF", "K5CDF", "K43DF", "PVCDF", "PYDDH", "K6CDF", "PUCDF", "K7CDF", "PUCDG",
+    "PU3DG", "PZDDH"
 )
 
 private val SANTA_FE_VDS_CODES = setOf(
@@ -881,6 +984,7 @@ fun EVStatusBar(
     twelveVoltLevel: Int? = null,
     isCharging: Boolean,
     rangeMiles: Double = 0.0,
+    distanceUnit: String = "MI",
     chargingMethodLabel: String? = null,
     chargingSpeedLabel: String? = null
 ) {
@@ -910,7 +1014,7 @@ fun EVStatusBar(
                     modifier = Modifier.weight(1f)
                 ) {
                     Text(
-                        if (rangeMiles > 0) "$batteryLevel% • ${rangeMiles.toInt()} mi" else "$batteryLevel%",
+                        if (rangeMiles > 0) "$batteryLevel% • ${formatDistanceFromMiles(rangeMiles, distanceUnit)}" else "$batteryLevel%",
                         fontSize = 40.sp,
                         lineHeight = 42.sp,
                         color = MaterialTheme.colorScheme.onSurface,
@@ -978,6 +1082,7 @@ fun EVStatusBar(
 fun FuelStatusBar(
     fuelLevel: Int,
     rangeMiles: Double = 0.0,
+    distanceUnit: String = "MI",
     label: String = "Fuel"
 ) {
     val clampedFuelLevel = fuelLevel.coerceIn(0, 100)
@@ -1011,7 +1116,7 @@ fun FuelStatusBar(
                 Spacer(Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        if (rangeMiles > 0) "$clampedFuelLevel% • ${rangeMiles.toInt()} mi" else "$clampedFuelLevel%",
+                        if (rangeMiles > 0) "$clampedFuelLevel% • ${formatDistanceFromMiles(rangeMiles, distanceUnit)}" else "$clampedFuelLevel%",
                         fontSize = 40.sp,
                         lineHeight = 42.sp,
                         color = MaterialTheme.colorScheme.onSurface,
