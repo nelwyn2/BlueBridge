@@ -18,6 +18,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -33,7 +35,7 @@ import com.bluebridge.android.ui.theme.*
 import com.bluebridge.android.viewmodel.SettingsViewModel
 import com.bluebridge.android.widget.VehicleWidgetProvider
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun SettingsScreen(
     onNavigateBack: () -> Unit,
@@ -43,6 +45,8 @@ fun SettingsScreen(
     val region by viewModel.region.collectAsStateWithLifecycle()
     val tempUnit by viewModel.temperatureUnit.collectAsStateWithLifecycle()
     val distanceUnit by viewModel.distanceUnit.collectAsStateWithLifecycle()
+    val timeZoneMode by viewModel.timeZoneMode.collectAsStateWithLifecycle()
+    val timeFormat by viewModel.timeFormat.collectAsStateWithLifecycle()
     val biometricEnabled by viewModel.biometricEnabled.collectAsStateWithLifecycle()
     val selectedThemeId by viewModel.appTheme.collectAsStateWithLifecycle()
     val uiColorOverrides by viewModel.uiColorOverrides.collectAsStateWithLifecycle()
@@ -87,9 +91,7 @@ fun SettingsScreen(
             // ── Account ───────────────────────────────────────────────────────
             ControlSection(title = "Account") {
                 Column {
-                    SettingsRow(
-                        icon = Icons.Filled.Language,
-                        label = "Region / Brand",
+                    RegionSettingsRow(
                         value = Region.valueOf(region).label,
                         onClick = { showRegionPicker = true }
                     )
@@ -193,6 +195,76 @@ fun SettingsScreen(
                         }
                     }
 
+
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f))
+
+                    // Time zone display preference
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Filled.Info, null, tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f), modifier = Modifier.size(20.dp))
+                            Spacer(Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("Time Zone", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+                                Text(
+                                    "Used for vehicle-reported timestamps such as tire readings",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+                                )
+                            }
+                        }
+                        FlowRow(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            TimeZoneChip("DEVICE", "Device", timeZoneMode, viewModel::setTimeZoneMode)
+                            TimeZoneChip("UTC", "UTC", timeZoneMode, viewModel::setTimeZoneMode)
+                            TimeZoneChip("AMERICA_NEW_YORK", "Eastern", timeZoneMode, viewModel::setTimeZoneMode)
+                            TimeZoneChip("AMERICA_CHICAGO", "Central", timeZoneMode, viewModel::setTimeZoneMode)
+                            TimeZoneChip("AMERICA_DENVER", "Mountain", timeZoneMode, viewModel::setTimeZoneMode)
+                            TimeZoneChip("AMERICA_LOS_ANGELES", "Pacific", timeZoneMode, viewModel::setTimeZoneMode)
+                            TimeZoneChip("AMERICA_HALIFAX", "Atlantic", timeZoneMode, viewModel::setTimeZoneMode)
+                        }
+                    }
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f))
+
+                    // Time format display preference
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Filled.Info, null, tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f), modifier = Modifier.size(20.dp))
+                            Spacer(Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("Time Format", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+                                Text(
+                                    "Used for vehicle-reported timestamps such as tire and odometer readings",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+                                )
+                            }
+                        }
+                        FlowRow(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            TimeFormatChip("12_HOUR", "12-hour AM/PM", timeFormat, viewModel::setTimeFormat)
+                            TimeFormatChip("24_HOUR", "24-hour", timeFormat, viewModel::setTimeFormat)
+                        }
+                    }
+
+
                     HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f))
 
                     // Biometric
@@ -242,7 +314,7 @@ fun SettingsScreen(
             // ── About ─────────────────────────────────────────────────────────
             ControlSection(title = "About") {
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    SettingsInfoRow("Version", "1.12")
+                    SettingsInfoRow("Version", "1.13")
                     SettingsInfoRow("API", "Hyundai Bluelink / Kia Connect")
                     SettingsInfoRow("Credit", "Nelwyn99")
                     Spacer(Modifier.height(4.dp))
@@ -312,7 +384,11 @@ fun SettingsScreen(
             onDismissRequest = { showRegionPicker = false },
             title = { Text("Select Region & Brand") },
             text = {
-                Column {
+                Column(
+                    modifier = Modifier
+                        .heightIn(max = 440.dp)
+                        .verticalScroll(rememberScrollState())
+                ) {
                     Region.entries.filter { it != Region.AU }.forEach { r ->
                         Row(
                             modifier = Modifier
@@ -321,7 +397,8 @@ fun SettingsScreen(
                                     viewModel.setRegion(r.name)
                                     showRegionPicker = false
                                 }
-                                .padding(vertical = 10.dp),
+                                .heightIn(min = 64.dp)
+                                .padding(vertical = 14.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             RadioButton(selected = r.name == region, onClick = {
@@ -329,7 +406,14 @@ fun SettingsScreen(
                                 showRegionPicker = false
                             })
                             Spacer(Modifier.width(8.dp))
-                            Text(r.label)
+                            Text(
+                                text = r.label,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                maxLines = 2,
+                                overflow = TextOverflow.Visible,
+                                modifier = Modifier.weight(1f)
+                            )
                         }
                         if (r != Region.entries.filter { it != Region.AU }.last()) HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f))
                     }
@@ -435,6 +519,51 @@ fun SettingsScreen(
     }
 }
 
+
+@Composable
+fun RegionSettingsRow(value: String, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 64.dp)
+            .clickable(onClick = onClick)
+            .padding(vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            Icons.Filled.Language,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+            modifier = Modifier.size(20.dp)
+        )
+        Spacer(Modifier.width(12.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = "Region / Brand",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Spacer(Modifier.height(2.dp))
+            Text(
+                text = value,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f),
+                maxLines = 2,
+                overflow = TextOverflow.Visible
+            )
+        }
+        Spacer(Modifier.width(10.dp))
+        Icon(
+            Icons.Filled.ChevronRight,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
+            modifier = Modifier.size(16.dp)
+        )
+    }
+}
+
 @Composable
 fun SettingsRow(icon: ImageVector, label: String, value: String, onClick: () -> Unit) {
     Row(
@@ -442,16 +571,38 @@ fun SettingsRow(icon: ImageVector, label: String, value: String, onClick: () -> 
             .fillMaxWidth()
             .clickable(onClick = onClick)
             .padding(vertical = 12.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.weight(1f, fill = true)
+        ) {
             Icon(icon, null, tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f), modifier = Modifier.size(20.dp))
             Spacer(Modifier.width(12.dp))
-            Text(label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Clip,
+                modifier = Modifier.weight(1f, fill = true)
+            )
         }
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(value, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
+        Spacer(Modifier.width(8.dp))
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.End,
+            modifier = Modifier.widthIn(max = 132.dp)
+        ) {
+            Text(
+                text = value,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f),
+                textAlign = TextAlign.End,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f, fill = false)
+            )
             Spacer(Modifier.width(4.dp))
             Icon(Icons.Filled.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f), modifier = Modifier.size(16.dp))
         }
@@ -669,6 +820,36 @@ fun ColorPickerDialog(
                 TextButton(onClick = onDismiss) { Text("Cancel") }
             }
         }
+    )
+}
+
+
+@Composable
+private fun TimeZoneChip(
+    value: String,
+    label: String,
+    selectedValue: String,
+    onSelected: (String) -> Unit
+) {
+    FilterChip(
+        selected = selectedValue == value,
+        onClick = { onSelected(value) },
+        label = { Text(label) }
+    )
+}
+
+
+@Composable
+private fun TimeFormatChip(
+    value: String,
+    label: String,
+    selectedValue: String,
+    onSelected: (String) -> Unit
+) {
+    FilterChip(
+        selected = selectedValue == value,
+        onClick = { onSelected(value) },
+        label = { Text(label) }
     )
 }
 

@@ -27,6 +27,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.input.*
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -142,10 +143,12 @@ fun LoginScreen(
                     label = { Text("Region & Brand") },
                     leadingIcon = { Icon(Icons.Filled.Public, contentDescription = null) },
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = regionMenuExpanded) },
-                    singleLine = true,
+                    singleLine = false,
+                    maxLines = 2,
                     modifier = Modifier
                         .menuAnchor()
-                        .fillMaxWidth(),
+                        .fillMaxWidth()
+                        .heightIn(min = 64.dp),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = MaterialTheme.colorScheme.primary,
                         focusedLabelColor = MaterialTheme.colorScheme.primary,
@@ -163,11 +166,19 @@ fun LoginScreen(
                 ) {
                     Region.entries.filter { it != Region.AU }.forEach { region ->
                         DropdownMenuItem(
-                            text = { Text(region.label) },
+                            text = {
+                                Text(
+                                    text = region.label,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Visible,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            },
                             onClick = {
                                 authViewModel.setRegion(region)
                                 regionMenuExpanded = false
                             },
+                            modifier = Modifier.heightIn(min = 64.dp),
                             leadingIcon = {
                                 if (region == selectedRegion) {
                                     Icon(Icons.Filled.Check, contentDescription = null)

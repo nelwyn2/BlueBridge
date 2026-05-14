@@ -1,5 +1,10 @@
 package com.bluebridge.android.ui.screens
 
+import android.content.Intent
+import android.net.Uri
+import android.widget.ImageView
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -34,6 +39,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -82,7 +88,23 @@ fun DashboardScreen(
     val commandHistory by vehicleViewModel.commandHistory.collectAsStateWithLifecycle()
     val temperatureUnit by vehicleViewModel.temperatureUnit.collectAsStateWithLifecycle()
     val distanceUnit by vehicleViewModel.distanceUnit.collectAsStateWithLifecycle()
+    val customDashboardImageUri by vehicleViewModel.customDashboardImageUri.collectAsStateWithLifecycle()
+    val context = LocalContext.current
     var pendingConfirmation by remember { mutableStateOf<DashboardConfirmationRequest?>(null) }
+
+    val dashboardImagePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            try {
+                context.contentResolver.takePersistableUriPermission(
+                    uri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+            } catch (_: SecurityException) {
+                // Some providers do not grant persistable permissions. The URI is still saved for the current provider permission window.
+            }
+            vehicleViewModel.setCustomDashboardImage(uri.toString())
+        }
+    }
 
     LaunchedEffect(Unit) {
         vehicleViewModel.loadVehicles()
@@ -179,6 +201,9 @@ fun DashboardScreen(
                             status = vehicleStatus,
                             isLoading = isStatusLoading,
                             distanceUnit = distanceUnit,
+                            customDashboardImageUri = customDashboardImageUri,
+                            onChooseCustomImage = { dashboardImagePicker.launch(arrayOf("image/*")) },
+                            onClearCustomImage = { vehicleViewModel.setCustomDashboardImage(null) },
                             onRefresh = { vehicleViewModel.refreshStatus(forceFromServer = true) },
                             onTapDetails = onNavigateToStatus
                         )
@@ -472,6 +497,9 @@ fun VehicleStatusCard(
     status: VehicleStatusData?,
     isLoading: Boolean,
     distanceUnit: String = "MI",
+    customDashboardImageUri: String? = null,
+    onChooseCustomImage: () -> Unit,
+    onClearCustomImage: () -> Unit,
     onRefresh: () -> Unit,
     onTapDetails: () -> Unit
 ) {
@@ -534,7 +562,12 @@ fun VehicleStatusCard(
                     }
                 }
 
-                VehicleDashboardImage(vehicle = vehicle)
+                VehicleDashboardImage(
+                    vehicle = vehicle,
+                    customImageUri = customDashboardImageUri,
+                    onChooseCustomImage = onChooseCustomImage,
+                    onClearCustomImage = onClearCustomImage
+                )
 
                 Spacer(Modifier.height(8.dp))
 
@@ -660,38 +693,120 @@ fun VehicleStatusCard(
 }
 
 @Composable
-private fun VehicleDashboardImage(vehicle: Vehicle?) {
-    Box(
+private fun VehicleDashboardImage(
+    vehicle: Vehicle?,
+    customImageUri: String?,
+    onChooseCustomImage: () -> Unit,
+    onClearCustomImage: () -> Unit
+) {
+    val hasCustomImage = !customImageUri.isNullOrBlank()
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .height(112.dp)
             .padding(top = 8.dp)
-            .clip(RoundedCornerShape(18.dp))
-            .background(Color.Black.copy(alpha = 0.18f)),
-        contentAlignment = Alignment.Center
     ) {
-        Image(
-            painter = painterResource(id = vehicleImageResource(vehicle)),
-            contentDescription = vehicle?.let { "${it.displayName} vehicle image" } ?: "Vehicle image",
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = if (hasCustomImage) "Custom image" else vehicleImageLabel(vehicle),
+                fontSize = 12.sp,
+                lineHeight = 13.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f),
+                maxLines = 1,
+                modifier = Modifier.weight(1f)
+            )
+
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                DashboardImagePillButton(
+                    label = if (hasCustomImage) "Change" else "Custom image",
+                    icon = Icons.Filled.PhotoCamera,
+                    onClick = onChooseCustomImage
+                )
+                if (hasCustomImage) {
+                    DashboardImagePillButton(
+                        label = "Reset",
+                        icon = Icons.Filled.Restore,
+                        onClick = onClearCustomImage
+                    )
+                }
+            }
+        }
+
+        Spacer(Modifier.height(6.dp))
+
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .fillMaxHeight()
-                .padding(horizontal = 14.dp, vertical = 6.dp),
-            contentScale = ContentScale.Fit
-        )
-        Text(
-            text = vehicleImageLabel(vehicle),
+                .height(124.dp)
+                .clip(RoundedCornerShape(18.dp))
+                .background(Color.Black.copy(alpha = 0.18f)),
+            contentAlignment = Alignment.Center
+        ) {
+            if (hasCustomImage) {
+                AndroidView(
+                    factory = { context ->
+                        ImageView(context).apply {
+                            adjustViewBounds = true
+                            scaleType = ImageView.ScaleType.FIT_CENTER
+                        }
+                    },
+                    update = { imageView ->
+                        imageView.setImageURI(Uri.parse(customImageUri))
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .fillMaxHeight()
+                        .padding(horizontal = 10.dp, vertical = 6.dp)
+                )
+            } else {
+                Image(
+                    painter = painterResource(id = vehicleImageResource(vehicle)),
+                    contentDescription = vehicle?.let { "${it.displayName} vehicle image" } ?: "Vehicle image",
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .fillMaxHeight()
+                        .padding(horizontal = 14.dp, vertical = 6.dp),
+                    contentScale = ContentScale.Fit
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun DashboardImagePillButton(
+    label: String,
+    icon: ImageVector,
+    onClick: () -> Unit
+) {
+    Surface(
+        shape = RoundedCornerShape(999.dp),
+        color = Color.Black.copy(alpha = 0.5f),
+        contentColor = Color.White
+    ) {
+        Row(
             modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(8.dp)
-                .clip(RoundedCornerShape(999.dp))
-                .background(Color.Black.copy(alpha = 0.45f))
-                .padding(horizontal = 8.dp, vertical = 3.dp),
-            fontSize = 12.sp,
-            lineHeight = 13.sp,
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.9f)
-        )
+                .clickable(onClick = onClick)
+                .padding(horizontal = 9.dp, vertical = 5.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Icon(icon, contentDescription = null, modifier = Modifier.size(13.dp))
+            Text(
+                label,
+                fontSize = 11.sp,
+                lineHeight = 12.sp,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1
+            )
+        }
     }
 }
 

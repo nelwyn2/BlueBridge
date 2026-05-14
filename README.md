@@ -9,7 +9,7 @@ An unofficial, open-source Android app for controlling Hyundai and Kia vehicles 
 - ❄️ **Climate Control** — temperature, defrost, heated steering wheel, seat heat levels
 - 🔋 **EV Support** — battery status, start/stop charging, set AC & DC charge targets
 - 📍 **Vehicle Status** — doors, hood, trunk, tires, ignition, odometer
-- 🖼️ **Vehicle-specific dashboard images** — includes supported Hyundai and Kia models such as Venue, Seltos, Telluride, Carnival, Sorento, and Sportage
+- 🖼️ **Dashboard vehicle images** — automatic supported Hyundai/Kia images plus an optional custom uploaded dashboard image
 - 🔔 **Horn & Lights** — panic button, flash lights only
 - 🌍 **Multi-region** — USA Hyundai, USA Kia, Canada, Europe, Australia/NZ
 - 🌑 **Dark-first Material 3 UI**
@@ -35,14 +35,22 @@ An unofficial, open-source Android app for controlling Hyundai and Kia vehicles 
 7. Sign in with your existing Bluelink / Kia Connect email and password
 
 
+
+## Dashboard Image
+
+The dashboard automatically selects a vehicle image for supported Hyundai and Kia models. You can also tap **Custom image** on the dashboard vehicle image card to choose your own image from the device. BlueBridge stores the selected image URI locally and asks Android for persistable read access when the image provider supports it. Use **Reset** on the same card to return to the automatic model image.
+
 ## Unit Preferences
 
 In **Settings → Preferences**, BlueBridge supports:
 
 - **Temperature Unit**: Fahrenheit or Celsius
 - **Distance Unit**: miles or kilometers
+- **Time Zone**: device time zone by default, with manual overrides for UTC and common North American zones
 
 Distance preference affects dashboard range cards, EV charging range, vehicle status range, odometer display, widgets, and Android Auto read-only status views. Vehicle API data is still cached internally in miles where the source API reports miles, then converted only for display.
+
+The time zone preference is used for vehicle-reported timestamps such as tire-pressure reading times. BlueBridge defaults to the device time zone. If the vehicle/API reports tire timestamps in a different zone, choose an override in **Settings → Preferences → Time Zone**.
 
 ## Home Screen Widgets
 
@@ -118,6 +126,10 @@ Known EU limitations:
 - Horn/lights and charge-target editing are not mapped yet.
 - Location parsing is not surfaced in the BlueBridge UI model yet.
 - Endpoint behavior can vary between Hyundai, Kia, Genesis, and CCS2-capable vehicles.
+
+## Unit and Time Preferences
+
+BlueBridge lets you choose Fahrenheit/Celsius, miles/kilometers, a display time zone, and 12-hour or 24-hour timestamp formatting. Vehicle-reported tire and odometer reading times use the selected time-zone and time-format preferences for consistent display.
 
 ## Regional Configuration
 

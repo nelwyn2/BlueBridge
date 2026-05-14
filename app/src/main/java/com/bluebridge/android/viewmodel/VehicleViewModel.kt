@@ -87,6 +87,15 @@ class VehicleViewModel @Inject constructor(
     val distanceUnit = preferencesManager.distanceUnit
         .stateIn(viewModelScope, SharingStarted.Eagerly, "MI")
 
+    val timeZoneMode = preferencesManager.timeZoneMode
+        .stateIn(viewModelScope, SharingStarted.Eagerly, "DEVICE")
+
+    val timeFormat = preferencesManager.timeFormat
+        .stateIn(viewModelScope, SharingStarted.Eagerly, "12_HOUR")
+
+    val customDashboardImageUri = preferencesManager.customDashboardImageUri
+        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
     val valetModeEnabled = preferencesManager.valetModeEnabled
         .stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
@@ -487,6 +496,18 @@ class VehicleViewModel @Inject constructor(
         viewModelScope.launch {
             preferencesManager.setDriverProfilePhotoUri(profileId, photoUri)
             _commandState.value = CommandState(CommandStatus.SUCCESS, "Profile photo updated")
+            delay(1500)
+            _commandState.value = CommandState()
+        }
+    }
+
+    fun setCustomDashboardImage(photoUri: String?) {
+        viewModelScope.launch {
+            preferencesManager.setCustomDashboardImageUri(photoUri)
+            _commandState.value = CommandState(
+                status = CommandStatus.SUCCESS,
+                message = if (photoUri.isNullOrBlank()) "Dashboard image reset" else "Dashboard image updated"
+            )
             delay(1500)
             _commandState.value = CommandState()
         }

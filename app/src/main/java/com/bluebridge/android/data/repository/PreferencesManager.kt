@@ -40,6 +40,8 @@ class PreferencesManager @Inject constructor(
         val REGION = stringPreferencesKey("region")
         val TEMPERATURE_UNIT = stringPreferencesKey("temp_unit")
         val DISTANCE_UNIT = stringPreferencesKey("distance_unit")
+        val TIME_ZONE_MODE = stringPreferencesKey("time_zone_mode")
+        val TIME_FORMAT = stringPreferencesKey("time_format")
         val BIOMETRIC_ENABLED = booleanPreferencesKey("biometric_enabled")
         val LAST_BIOMETRIC_UNLOCK_AT = longPreferencesKey("last_biometric_unlock_at")
         val LAST_STATUS_REFRESH = longPreferencesKey("last_status_refresh")
@@ -51,6 +53,7 @@ class PreferencesManager @Inject constructor(
         val PROFILE_PRIMARY_PHOTO_URI = stringPreferencesKey("profile_primary_photo_uri")
         val PROFILE_GUEST_PHOTO_URI = stringPreferencesKey("profile_guest_photo_uri")
         val PROFILE_VALET_PHOTO_URI = stringPreferencesKey("profile_valet_photo_uri")
+        val CUSTOM_DASHBOARD_IMAGE_URI = stringPreferencesKey("custom_dashboard_image_uri")
         val COMMAND_HISTORY_JSON = stringPreferencesKey("command_history_json")
         val WIDGET_VEHICLE_NAME = stringPreferencesKey("widget_vehicle_name")
         val WIDGET_VEHICLE_VIN = stringPreferencesKey("widget_vehicle_vin")
@@ -121,6 +124,14 @@ class PreferencesManager @Inject constructor(
         .catch { if (it is IOException) emit(emptyPreferences()) else throw it }
         .map { it[DISTANCE_UNIT] ?: "MI" }
 
+    val timeZoneMode: Flow<String> = dataStore.data
+        .catch { if (it is IOException) emit(emptyPreferences()) else throw it }
+        .map { it[TIME_ZONE_MODE] ?: "DEVICE" }
+
+    val timeFormat: Flow<String> = dataStore.data
+        .catch { if (it is IOException) emit(emptyPreferences()) else throw it }
+        .map { it[TIME_FORMAT] ?: "12_HOUR" }
+
     val biometricEnabled: Flow<Boolean> = dataStore.data
         .catch { if (it is IOException) emit(emptyPreferences()) else throw it }
         .map { it[BIOMETRIC_ENABLED] ?: false }
@@ -159,6 +170,10 @@ class PreferencesManager @Inject constructor(
                 "valet" to prefs[PROFILE_VALET_PHOTO_URI]
             )
         }
+
+    val customDashboardImageUri: Flow<String?> = dataStore.data
+        .catch { if (it is IOException) emit(emptyPreferences()) else throw it }
+        .map { it[CUSTOM_DASHBOARD_IMAGE_URI] }
 
     val lastStatusRefresh: Flow<Long> = dataStore.data
         .catch { if (it is IOException) emit(emptyPreferences()) else throw it }
@@ -271,6 +286,14 @@ class PreferencesManager @Inject constructor(
         dataStore.edit { it[DISTANCE_UNIT] = unit }
     }
 
+    suspend fun setTimeZoneMode(mode: String) {
+        dataStore.edit { it[TIME_ZONE_MODE] = mode }
+    }
+
+    suspend fun setTimeFormat(format: String) {
+        dataStore.edit { it[TIME_FORMAT] = format }
+    }
+
     suspend fun setBiometricEnabled(enabled: Boolean) {
         dataStore.edit { prefs ->
             prefs[BIOMETRIC_ENABLED] = enabled
@@ -326,6 +349,12 @@ class PreferencesManager @Inject constructor(
         }
         dataStore.edit { prefs ->
             if (photoUri.isNullOrBlank()) prefs.remove(key) else prefs[key] = photoUri
+        }
+    }
+
+    suspend fun setCustomDashboardImageUri(photoUri: String?) {
+        dataStore.edit { prefs ->
+            if (photoUri.isNullOrBlank()) prefs.remove(CUSTOM_DASHBOARD_IMAGE_URI) else prefs[CUSTOM_DASHBOARD_IMAGE_URI] = photoUri
         }
     }
 

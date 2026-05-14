@@ -26,6 +26,12 @@ class SettingsViewModel @Inject constructor(
     val distanceUnit = preferencesManager.distanceUnit
         .stateIn(viewModelScope, SharingStarted.Eagerly, "MI")
 
+    val timeZoneMode = preferencesManager.timeZoneMode
+        .stateIn(viewModelScope, SharingStarted.Eagerly, "DEVICE")
+
+    val timeFormat = preferencesManager.timeFormat
+        .stateIn(viewModelScope, SharingStarted.Eagerly, "12_HOUR")
+
     val biometricEnabled = preferencesManager.biometricEnabled
         .stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
@@ -56,6 +62,14 @@ class SettingsViewModel @Inject constructor(
 
     fun setDistanceUnit(unit: String) = viewModelScope.launch {
         preferencesManager.setDistanceUnit(unit)
+    }
+
+    fun setTimeZoneMode(mode: String) = viewModelScope.launch {
+        preferencesManager.setTimeZoneMode(mode)
+    }
+
+    fun setTimeFormat(format: String) = viewModelScope.launch {
+        preferencesManager.setTimeFormat(format)
     }
 
     fun setBiometricEnabled(enabled: Boolean) = viewModelScope.launch {

@@ -16,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -23,6 +24,12 @@ import com.bluebridge.android.ui.components.ControlSection
 import com.bluebridge.android.data.models.*
 import com.bluebridge.android.ui.theme.*
 import com.bluebridge.android.viewmodel.VehicleViewModel
+import java.time.Instant
+import java.time.LocalDateTime
+import java.time.ZoneId
+import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 private val SeatHeatOrange = Color(0xFFFF9800)
 private val SeatVentBlue = Color(0xFF03A9F4)
@@ -40,6 +47,8 @@ fun StatusScreen(
     val isLoading by vehicleViewModel.isStatusLoading.collectAsStateWithLifecycle()
     val temperatureUnit by vehicleViewModel.temperatureUnit.collectAsStateWithLifecycle()
     val distanceUnit by vehicleViewModel.distanceUnit.collectAsStateWithLifecycle()
+    val timeZoneMode by vehicleViewModel.timeZoneMode.collectAsStateWithLifecycle()
+    val timeFormat by vehicleViewModel.timeFormat.collectAsStateWithLifecycle()
 
     Scaffold(
         topBar = {
@@ -176,23 +185,13 @@ fun StatusScreen(
                 }
 
                 // ─── Tires ─────────────────────────────────────────────────────
-                s.tirePressureLamp?.let { tires ->
-                    ControlSection(title = "Tire Pressure") {
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            StatusRow(Icons.Filled.Circle, "Front Left",
-                                if (tires.frontLeft == 1) "LOW" else "OK",
-                                if (tires.frontLeft == 1) ErrorRed else SuccessGreen)
-                            StatusRow(Icons.Filled.Circle, "Front Right",
-                                if (tires.frontRight == 1) "LOW" else "OK",
-                                if (tires.frontRight == 1) ErrorRed else SuccessGreen)
-                            StatusRow(Icons.Filled.Circle, "Rear Left",
-                                if (tires.rearLeft == 1) "LOW" else "OK",
-                                if (tires.rearLeft == 1) ErrorRed else SuccessGreen)
-                            StatusRow(Icons.Filled.Circle, "Rear Right",
-                                if (tires.rearRight == 1) "LOW" else "OK",
-                                if (tires.rearRight == 1) ErrorRed else SuccessGreen)
-                        }
-                    }
+                if (s.tirePressureLamp != null || s.tirePressureStatus != null) {
+                    TireStatusSection(
+                        warning = s.tirePressureLamp,
+                        pressure = s.tirePressureStatus,
+                        timeZoneMode = timeZoneMode,
+                        timeFormat = timeFormat
+                    )
                 }
 
                 // ─── EV Battery ────────────────────────────────────────────────
@@ -231,18 +230,6 @@ fun StatusScreen(
                                     StatusRow(Icons.Filled.Warning, "12V Warning Threshold",
                                         "${ref.warningThreshold}%", WarningAmber)
                                 }
-                            }
-                        }
-
-                        s.tirePressureStatus?.let { tire ->
-                            StatusRow(Icons.Filled.Circle, "Tire PSI",
-                                "FL ${tire.frontLeftPsi} · FR ${tire.frontRightPsi} · RL ${tire.rearLeftPsi} · RR ${tire.rearRightPsi}", MaterialTheme.colorScheme.onSurface)
-                            val latestTireTime = listOf(tire.frontLeftTime, tire.frontRightTime, tire.rearLeftTime, tire.rearRightTime)
-                                .filter { it.isNotBlank() }
-                                .maxOrNull()
-                            if (!latestTireTime.isNullOrBlank()) {
-                                StatusRow(Icons.Filled.Info, "Tire Reading Time",
-                                    formatHyundaiTimestamp(latestTireTime), MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f))
                             }
                         }
 
@@ -286,7 +273,10 @@ fun StatusScreen(
                     v.additionalDetails?.let { details ->
                         ControlSection(title = "Vehicle Capabilities") {
                             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                StatusRow(Icons.Filled.Info, "Digital Key", "Capable ${yesNoShort(details.digitalKeyCapable)} · Enrolled ${yesNoShort(details.digitalKeyEnrolled)}", MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f))
+                                DigitalKeyStatusRow(
+                                    value = "Capable ${yesNoShort(details.digitalKeyCapable)} · Enrolled ${yesNoShort(details.digitalKeyEnrolled)}",
+                                    valueColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f)
+                                )
                                 StatusRow(Icons.Filled.Info, "V2L", yesNo(details.v2lOption), capabilityColor(details.v2lOption))
                                 StatusRow(Icons.Filled.Info, "Wi-Fi Hotspot", yesNo(details.wifiHotspotCapable), capabilityColor(details.wifiHotspotCapable))
                                 StatusRow(Icons.Filled.Info, "Battery Preconditioning", capabilityOption(details.batteryPreconditioningOption), capabilityColor(details.batteryPreconditioningOption))
@@ -315,18 +305,6 @@ fun StatusScreen(
                                     StackedStatusRow(name, status)
                                 }
                             }
-                        }
-                    }
-                }
-
-                s.tirePressureLamp?.let { tires ->
-                    ControlSection(title = "Tire Warning Lamps") {
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            StatusRow(Icons.Filled.Info, "Overall Tire Warning", if (tires.anyLow) "Warning" else "None", if (tires.anyLow) ErrorRed else SuccessGreen)
-                            StatusRow(Icons.Filled.Circle, "Front Left", tireWarningLabel(tires.frontLeft), tireWarningColor(tires.frontLeft))
-                            StatusRow(Icons.Filled.Circle, "Front Right", tireWarningLabel(tires.frontRight), tireWarningColor(tires.frontRight))
-                            StatusRow(Icons.Filled.Circle, "Rear Left", tireWarningLabel(tires.rearLeft), tireWarningColor(tires.rearLeft))
-                            StatusRow(Icons.Filled.Circle, "Rear Right", tireWarningLabel(tires.rearRight), tireWarningColor(tires.rearRight))
                         }
                     }
                 }
@@ -440,7 +418,7 @@ fun StatusScreen(
                             StatusRow(Icons.Filled.Speed, "Total Mileage",
                                 formatOdometerFromMiles(s.totalMileage, distanceUnit), MaterialTheme.colorScheme.onSurface)
                             vehicle?.odometerUpdateDate?.takeIf { it.isNotBlank() }?.let { updated ->
-                                StatusRow(Icons.Filled.Info, "Odometer Updated", formatHyundaiDate(updated), MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f))
+                                OdometerUpdatedRow(formatOdometerTimestamp(updated, timeZoneMode, timeFormat))
                             }
                         }
                     }
@@ -461,12 +439,79 @@ private fun chargePortDoorLabel(code: Int): String = when (code) {
     else -> "Code $code"
 }
 
-private fun formatHyundaiTimestamp(raw: String): String {
+private fun formatHyundaiTimestamp(raw: String, timeZoneMode: String = "DEVICE", timeFormat: String = "12_HOUR"): String {
     if (raw.isBlank()) return raw
-    return raw
-        .removeSuffix("Z")
-        .replace('T', ' ')
-        .trim()
+    val displayZone = resolveDisplayZone(timeZoneMode)
+    val trimmed = raw.trim()
+    return parseVehicleTimestamp(
+        raw = trimmed,
+        displayZone = displayZone,
+        timeFormat = timeFormat,
+        treatNaiveTimestampAsUtc = true
+    ) ?: trimmed.removeSuffix("Z").replace('T', ' ').trim()
+}
+
+private fun formatOdometerTimestamp(raw: String, timeZoneMode: String = "DEVICE", timeFormat: String = "12_HOUR"): String {
+    if (raw.isBlank()) return raw
+    val displayZone = resolveDisplayZone(timeZoneMode)
+    val trimmed = raw.trim()
+    return parseVehicleTimestamp(
+        raw = trimmed,
+        displayZone = displayZone,
+        timeFormat = timeFormat,
+        treatNaiveTimestampAsUtc = false
+    ) ?: trimmed.removeSuffix("Z").replace('T', ' ').trim()
+}
+
+private fun parseVehicleTimestamp(
+    raw: String,
+    displayZone: ZoneId,
+    timeFormat: String,
+    treatNaiveTimestampAsUtc: Boolean
+): String? {
+    val output = DateTimeFormatter.ofPattern(timestampPattern(timeFormat), Locale.US)
+    val normalizedIso = raw.replace(' ', 'T')
+    return runCatching {
+        when {
+            normalizedIso.endsWith("Z", ignoreCase = true) -> Instant.parse(normalizedIso.uppercase(Locale.US))
+                .atZone(displayZone)
+                .format(output)
+            raw.contains(Regex("[+-]\\d{2}:?\\d{2}$")) -> ZonedDateTime.parse(normalizedIso)
+                .withZoneSameInstant(displayZone)
+                .format(output)
+            else -> {
+                val digits = raw.filter { it.isDigit() }
+                if (digits.length < 12) return@runCatching null
+                val padded = digits.padEnd(14, '0')
+                val local = LocalDateTime.of(
+                    padded.substring(0, 4).toInt(),
+                    padded.substring(4, 6).toInt(),
+                    padded.substring(6, 8).toInt(),
+                    padded.substring(8, 10).toInt(),
+                    padded.substring(10, 12).toInt(),
+                    padded.substring(12, 14).toInt()
+                )
+                if (treatNaiveTimestampAsUtc) {
+                    local.atZone(ZoneId.of("UTC")).withZoneSameInstant(displayZone).format(output)
+                } else {
+                    local.atZone(displayZone).format(output)
+                }
+            }
+        }
+    }.getOrNull()
+}
+
+private fun timestampPattern(timeFormat: String): String =
+    if (timeFormat == "24_HOUR") "MMM d, yyyy HH:mm z" else "MMM d, yyyy h:mm a z"
+
+private fun resolveDisplayZone(timeZoneMode: String): ZoneId = when (timeZoneMode) {
+    "UTC" -> ZoneId.of("UTC")
+    "AMERICA_NEW_YORK" -> ZoneId.of("America/New_York")
+    "AMERICA_CHICAGO" -> ZoneId.of("America/Chicago")
+    "AMERICA_DENVER" -> ZoneId.of("America/Denver")
+    "AMERICA_LOS_ANGELES" -> ZoneId.of("America/Los_Angeles")
+    "AMERICA_HALIFAX" -> ZoneId.of("America/Halifax")
+    else -> ZoneId.systemDefault()
 }
 
 private fun formatScheduleTime(time: com.bluebridge.android.data.models.ScheduleTime?): String {
@@ -734,9 +779,55 @@ private fun supportedSeatLevelsLabel(raw: String): String {
         .ifBlank { "Not reported" }
 }
 
-private fun tireWarningLabel(code: Int): String = if (code == 1) "Warning" else "OK"
 
-private fun tireWarningColor(code: Int): Color = if (code == 1) ErrorRed else SuccessGreen
+@Composable
+private fun TireStatusSection(
+    warning: TirePressure?,
+    pressure: TirePressureStatus?,
+    timeZoneMode: String,
+    timeFormat: String
+) {
+    ControlSection(title = "Tires") {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            latestTireReadingTime(pressure)?.let { readingTime ->
+                LastReadingRow(
+                    value = formatHyundaiTimestamp(readingTime, timeZoneMode, timeFormat)
+                )
+            }
+
+            TireStatusRow("Front Left", warning?.frontLeft, pressure?.frontLeftPsi)
+            TireStatusRow("Front Right", warning?.frontRight, pressure?.frontRightPsi)
+            TireStatusRow("Rear Left", warning?.rearLeft, pressure?.rearLeftPsi)
+            TireStatusRow("Rear Right", warning?.rearRight, pressure?.rearRightPsi)
+        }
+    }
+}
+
+@Composable
+private fun TireStatusRow(
+    label: String,
+    warningCode: Int?,
+    psi: Int?
+) {
+    val isLow = warningCode == 1
+    val state = if (isLow) "Low" else "OK"
+    val pressureText = psi
+        ?.takeIf { it > 0 }
+        ?.let { "$it PSI" }
+        ?: "Pressure not reported"
+    StatusRow(
+        Icons.Filled.Circle,
+        label,
+        "$state · $pressureText",
+        if (isLow) ErrorRed else SuccessGreen
+    )
+}
+
+private fun latestTireReadingTime(pressure: TirePressureStatus?): String? = pressure?.let { tire ->
+    listOf(tire.frontLeftTime, tire.frontRightTime, tire.rearLeftTime, tire.rearRightTime)
+        .filter { it.isNotBlank() }
+        .maxOrNull()
+}
 
 private fun commandStatusColor(name: String): Color = when (name.uppercase()) {
     "SUCCESS" -> SuccessGreen
@@ -756,17 +847,120 @@ private fun formatHyundaiDate(raw: String): String {
 }
 
 @Composable
+private fun OdometerUpdatedRow(value: String) {
+    LastReadingRow(value = value)
+}
+
+@Composable
+private fun LastReadingRow(value: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.widthIn(min = 88.dp)
+        ) {
+            Icon(
+                Icons.Filled.Info,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                modifier = Modifier.size(16.dp)
+            )
+            Spacer(Modifier.width(8.dp))
+            Text(
+                "Last Read",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                maxLines = 1,
+                overflow = TextOverflow.Clip
+            )
+        }
+        Spacer(Modifier.width(12.dp))
+        Text(
+            value,
+            modifier = Modifier.weight(1f),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f),
+            fontWeight = FontWeight.Medium,
+            textAlign = TextAlign.End,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+@Composable
 fun StatusRow(icon: ImageVector, label: String, value: String, valueColor: Color) {
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .weight(1.75f)
+                .widthIn(min = 208.dp)
+        ) {
             Icon(icon, null, tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f), modifier = Modifier.size(16.dp))
             Spacer(Modifier.width(8.dp))
-            Text(label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
+            Text(
+                label,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f),
+                maxLines = 1,
+                overflow = TextOverflow.Clip
+            )
         }
-        Text(value, style = MaterialTheme.typography.bodyMedium, color = valueColor, fontWeight = FontWeight.Medium)
+        Spacer(Modifier.width(8.dp))
+        Text(
+            value,
+            modifier = Modifier.weight(0.95f),
+            style = MaterialTheme.typography.bodyMedium,
+            color = valueColor,
+            fontWeight = FontWeight.Medium,
+            textAlign = TextAlign.End,
+            maxLines = 1,
+            overflow = TextOverflow.Clip
+        )
+    }
+}
+
+@Composable
+private fun DigitalKeyStatusRow(value: String, valueColor: Color) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.widthIn(min = 116.dp)
+        ) {
+            Icon(
+                Icons.Filled.Info,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                modifier = Modifier.size(16.dp)
+            )
+            Spacer(Modifier.width(8.dp))
+            Text(
+                "Digital Key",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f),
+                maxLines = 1,
+                overflow = TextOverflow.Clip
+            )
+        }
+        Spacer(Modifier.width(8.dp))
+        Text(
+            value,
+            modifier = Modifier.weight(1f),
+            style = MaterialTheme.typography.bodyMedium,
+            color = valueColor,
+            fontWeight = FontWeight.Medium,
+            textAlign = TextAlign.End,
+            maxLines = 1,
+            overflow = TextOverflow.Clip
+        )
     }
 }
