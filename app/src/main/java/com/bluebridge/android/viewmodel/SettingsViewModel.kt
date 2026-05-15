@@ -35,9 +35,23 @@ class SettingsViewModel @Inject constructor(
     val biometricEnabled = preferencesManager.biometricEnabled
         .stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
+    val biometricUnlockMode = preferencesManager.biometricUnlockMode
+        .stateIn(viewModelScope, SharingStarted.Eagerly, "APP_OPEN")
+
+    val stayLoggedIn30Days = preferencesManager.stayLoggedIn30Days
+        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
     val lastBiometricUnlockAt = preferencesManager.lastBiometricUnlockAt
         .stateIn(viewModelScope, SharingStarted.Eagerly, -1L)
 
+    val walkAwayLockEnabled = preferencesManager.walkAwayLockEnabled
+        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
+    val walkAwayBluetoothName = preferencesManager.walkAwayBluetoothName
+        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
+    val walkAwayBluetoothAddress = preferencesManager.walkAwayBluetoothAddress
+        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     val appTheme = preferencesManager.appTheme
         .stateIn(viewModelScope, SharingStarted.Eagerly, "hyundai_night")
@@ -77,10 +91,29 @@ class SettingsViewModel @Inject constructor(
         if (!enabled) secureCredentialsManager.clearSavedCredentials()
     }
 
+    fun setBiometricUnlockMode(mode: String) = viewModelScope.launch {
+        preferencesManager.setBiometricUnlockMode(mode)
+    }
+
+    fun setStayLoggedIn30Days(enabled: Boolean) = viewModelScope.launch {
+        preferencesManager.setStayLoggedIn30Days(enabled)
+    }
+
     fun setLastBiometricUnlockAt(timestamp: Long) = viewModelScope.launch {
         preferencesManager.setLastBiometricUnlockAt(timestamp)
     }
 
+    fun setWalkAwayLockEnabled(enabled: Boolean) = viewModelScope.launch {
+        preferencesManager.setWalkAwayLockEnabled(enabled)
+    }
+
+    fun setWalkAwayBluetoothDevice(name: String, address: String) = viewModelScope.launch {
+        preferencesManager.setWalkAwayBluetoothDevice(name, address)
+    }
+
+    fun clearWalkAwayBluetoothDevice() = viewModelScope.launch {
+        preferencesManager.clearWalkAwayBluetoothDevice()
+    }
 
     fun setAppTheme(themeId: String) = viewModelScope.launch {
         preferencesManager.setAppTheme(themeId)

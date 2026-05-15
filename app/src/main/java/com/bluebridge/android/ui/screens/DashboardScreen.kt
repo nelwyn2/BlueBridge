@@ -48,6 +48,7 @@ import com.bluebridge.android.R
 import com.bluebridge.android.data.models.CommandHistoryEntry
 import com.bluebridge.android.data.models.Vehicle
 import com.bluebridge.android.data.models.VehicleStatusData
+import com.bluebridge.android.data.models.hasFuelTelemetryFor
 import com.bluebridge.android.ui.components.CommandStatusBanner
 import com.bluebridge.android.ui.theme.*
 import com.bluebridge.android.viewmodel.CommandStatus
@@ -624,7 +625,7 @@ fun VehicleStatusCard(
 
                     Spacer(Modifier.height(10.dp))
 
-                    // EV or fuel status
+                    // EV/PHEV or fuel status
                     status.evStatus?.let { ev ->
                         val chargingPowerKw = ev.chargingPowerKw?.takeIf { it > 0.0 }
                         val isActivelyCharging = ev.batteryCharge || chargingPowerKw != null
@@ -640,17 +641,19 @@ fun VehicleStatusCard(
                                 "${String.format(java.util.Locale.US, "%.1f", it)} kW"
                             }
                         )
-                    } ?: run {
-                        status.dte?.let { dte ->
-                            val reportedFuelLevel = dte.normalizedFuelLevelPercent
+
+                        if (status.hasFuelTelemetryFor(vehicle)) {
+                            Spacer(Modifier.height(8.dp))
+                            val reportedFuelLevel = status.normalizedFuelLevelPercent
+                            val fuelRangeMiles = status.fuelRangeMiles
                             if (reportedFuelLevel != null) {
                                 FuelStatusBar(
                                     fuelLevel = reportedFuelLevel,
-                                    rangeMiles = dte.value,
+                                    rangeMiles = fuelRangeMiles,
                                     distanceUnit = distanceUnit,
-                                    label = if (reportedFuelLevel <= 10) "Low fuel" else "Fuel"
+                                    label = if (reportedFuelLevel <= 10 || status.lowFuelLight) "Low fuel" else "Fuel"
                                 )
-                            } else {
+                            } else if (fuelRangeMiles > 0.0) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Icon(
                                         Icons.Filled.LocalGasStation,
@@ -660,7 +663,7 @@ fun VehicleStatusCard(
                                     )
                                     Spacer(Modifier.width(6.dp))
                                     Text(
-                                        "${formatDistanceFromMiles(dte.value, distanceUnit)} range",
+                                        "Fuel ${formatDistanceFromMiles(fuelRangeMiles, distanceUnit)} range",
                                         fontSize = 16.sp,
                                         lineHeight = 18.sp,
                                         fontWeight = FontWeight.SemiBold,
@@ -668,6 +671,35 @@ fun VehicleStatusCard(
                                         maxLines = 1
                                     )
                                 }
+                            }
+                        }
+                    } ?: run {
+                        val reportedFuelLevel = status.normalizedFuelLevelPercent
+                        val fuelRangeMiles = status.fuelRangeMiles
+                        if (reportedFuelLevel != null) {
+                            FuelStatusBar(
+                                fuelLevel = reportedFuelLevel,
+                                rangeMiles = fuelRangeMiles,
+                                distanceUnit = distanceUnit,
+                                label = if (reportedFuelLevel <= 10 || status.lowFuelLight) "Low fuel" else "Fuel"
+                            )
+                        } else if (fuelRangeMiles > 0.0) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    Icons.Filled.LocalGasStation,
+                                    null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(Modifier.width(6.dp))
+                                Text(
+                                    "${formatDistanceFromMiles(fuelRangeMiles, distanceUnit)} range",
+                                    fontSize = 16.sp,
+                                    lineHeight = 18.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.9f),
+                                    maxLines = 1
+                                )
                             }
                         }
                     }
@@ -822,6 +854,8 @@ private enum class DashboardVehicleImageProfile(
     SONATA(R.drawable.vehicle_sonata_white, "Sonata"),
     TUCSON(R.drawable.vehicle_tucson_red, "Tucson"),
     VENUE(R.drawable.vehicle_venue_red, "Venue"),
+    KIA_EV6(R.drawable.vehicle_kia_ev6, "Kia EV6"),
+    KIA_EV9(R.drawable.vehicle_kia_ev9, "Kia EV9"),
     KIA_K4(R.drawable.vehicle_kia_k4, "Kia K4"),
     KIA_K5(R.drawable.vehicle_kia_k5, "Kia K5"),
     KIA_SELTOS(R.drawable.vehicle_kia_seltos, "Kia Seltos"),
@@ -872,6 +906,8 @@ private fun dashboardVehicleImageProfile(vehicle: Vehicle?): DashboardVehicleIma
         isSantaFe(vin, modelText) -> DashboardVehicleImageProfile.SANTA_FE
         isTucson(vin, modelText) -> DashboardVehicleImageProfile.TUCSON
         isVenue(vin, modelText) -> DashboardVehicleImageProfile.VENUE
+        isKiaEv9(vin, modelText) -> DashboardVehicleImageProfile.KIA_EV9
+        isKiaEv6(vin, modelText) -> DashboardVehicleImageProfile.KIA_EV6
         isKiaK4(vin, modelText) -> DashboardVehicleImageProfile.KIA_K4
         isKiaK5(vin, modelText) -> DashboardVehicleImageProfile.KIA_K5
         isKiaTelluride(vin, modelText) -> DashboardVehicleImageProfile.KIA_TELLURIDE
@@ -916,12 +952,21 @@ private fun isTucson(vin: String, modelText: String): Boolean =
             modelText.contains("TUCSON", ignoreCase = true)
 
 private fun isSantaFe(vin: String, modelText: String): Boolean =
-    vehicleVinMatches(vin, setOf("KM8", "5NM", "5XY"), SANTA_FE_VDS_CODES) ||
-            modelText.contains("SANTA FE", ignoreCase = true)
+    vehicleVinMatches(vin, setOf("KM8", "KMH", "5NM", "5XY", "TMA"), SANTA_FE_VDS_CODES) ||
+            modelText.contains("SANTA FE", ignoreCase = true) ||
+            modelText.contains("SANTAFE", ignoreCase = true)
 
 private fun isVenue(vin: String, modelText: String): Boolean =
     vehicleVinMatches(vin, setOf("KMH"), VENUE_VDS_CODES) ||
             modelText.contains("VENUE", ignoreCase = true)
+
+private fun isKiaEv6(vin: String, modelText: String): Boolean =
+    vehicleVinMatches(vin, KIA_WMI_PREFIXES, KIA_EV6_VDS_CODES) ||
+            modelText.containsAnyVehicleText("EV6", "EV 6")
+
+private fun isKiaEv9(vin: String, modelText: String): Boolean =
+    vehicleVinMatches(vin, KIA_WMI_PREFIXES, KIA_EV9_VDS_CODES) ||
+            modelText.containsAnyVehicleText("EV9", "EV 9")
 
 private fun isKiaK4(vin: String, modelText: String): Boolean =
     vehicleVinMatches(vin, KIA_WMI_PREFIXES, KIA_K4_VDS_CODES) ||
@@ -1000,7 +1045,15 @@ private val VENUE_VDS_CODES = setOf(
 )
 
 private val KIA_WMI_PREFIXES = setOf(
-    "KNA", "KND", "KNM", "5XY", "5XX"
+    "KNA", "KNC", "KND", "KNE", "KNG", "KNM", "KNN", "5XY", "5XX", "U5Y", "XWE"
+)
+
+private val KIA_EV6_VDS_CODES = setOf(
+    "C44LA", "C34LB", "C34LA", "C3DLC", "C4DLC", "C5DLE"
+)
+
+private val KIA_EV9_VDS_CODES = setOf(
+    "AEFS5", "ADFS5", "AFFS5", "AB5S1", "AA5S2"
 )
 
 private val KIA_K4_VDS_CODES = setOf(

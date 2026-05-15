@@ -35,6 +35,8 @@ class PreferencesManager @Inject constructor(
         val USERNAME = stringPreferencesKey("username")
         val SERVICE_PIN = stringPreferencesKey("service_pin")
         val TOKEN_EXPIRES_AT = longPreferencesKey("token_expires_at")
+        val SESSION_EXPIRES_AT = longPreferencesKey("session_expires_at")
+        val STAY_LOGGED_IN_30_DAYS = booleanPreferencesKey("stay_logged_in_30_days")
         val PASSWORD_REQUIRED = booleanPreferencesKey("password_required")
         val SELECTED_VIN = stringPreferencesKey("selected_vin")
         val REGION = stringPreferencesKey("region")
@@ -43,7 +45,12 @@ class PreferencesManager @Inject constructor(
         val TIME_ZONE_MODE = stringPreferencesKey("time_zone_mode")
         val TIME_FORMAT = stringPreferencesKey("time_format")
         val BIOMETRIC_ENABLED = booleanPreferencesKey("biometric_enabled")
+        val BIOMETRIC_UNLOCK_MODE = stringPreferencesKey("biometric_unlock_mode")
         val LAST_BIOMETRIC_UNLOCK_AT = longPreferencesKey("last_biometric_unlock_at")
+        val WALK_AWAY_LOCK_ENABLED = booleanPreferencesKey("walk_away_lock_enabled")
+        val WALK_AWAY_LOCK_DELAY_SECONDS = intPreferencesKey("walk_away_lock_delay_seconds")
+        val WALK_AWAY_BLUETOOTH_ADDRESS = stringPreferencesKey("walk_away_bluetooth_address")
+        val WALK_AWAY_BLUETOOTH_NAME = stringPreferencesKey("walk_away_bluetooth_name")
         val LAST_STATUS_REFRESH = longPreferencesKey("last_status_refresh")
         val DEFAULT_CLIMATE_TEMP = stringPreferencesKey("default_climate_temp")
         val VALET_MODE_ENABLED = booleanPreferencesKey("valet_mode_enabled")
@@ -73,12 +80,30 @@ class PreferencesManager @Inject constructor(
         val WIDGET_UPDATED_AT = longPreferencesKey("widget_updated_at")
         val CANADA_DEVICE_ID = stringPreferencesKey("canada_device_id")
         val EU_DEVICE_ID = stringPreferencesKey("eu_device_id")
+        val EU_DEVICE_REGION = stringPreferencesKey("eu_device_region")
         val AU_DEVICE_ID = stringPreferencesKey("au_device_id")
+        const val THIRTY_DAYS_MS = 30L * 24L * 60L * 60L * 1000L
     }
 
     val accessToken: Flow<String?> = dataStore.data
         .catch { if (it is IOException) emit(emptyPreferences()) else throw it }
         .map { it[ACCESS_TOKEN] }
+
+    val refreshToken: Flow<String?> = dataStore.data
+        .catch { if (it is IOException) emit(emptyPreferences()) else throw it }
+        .map { it[REFRESH_TOKEN] }
+
+    val tokenExpiresAt: Flow<Long> = dataStore.data
+        .catch { if (it is IOException) emit(emptyPreferences()) else throw it }
+        .map { it[TOKEN_EXPIRES_AT] ?: 0L }
+
+    val sessionExpiresAt: Flow<Long> = dataStore.data
+        .catch { if (it is IOException) emit(emptyPreferences()) else throw it }
+        .map { it[SESSION_EXPIRES_AT] ?: it[TOKEN_EXPIRES_AT] ?: 0L }
+
+    val stayLoggedIn30Days: Flow<Boolean> = dataStore.data
+        .catch { if (it is IOException) emit(emptyPreferences()) else throw it }
+        .map { it[STAY_LOGGED_IN_30_DAYS] ?: false }
 
     val username: Flow<String?> = dataStore.data
         .catch { if (it is IOException) emit(emptyPreferences()) else throw it }
@@ -92,7 +117,7 @@ class PreferencesManager @Inject constructor(
         .catch { if (it is IOException) emit(emptyPreferences()) else throw it }
         .map { prefs ->
             val token = prefs[ACCESS_TOKEN]
-            val expiresAt = prefs[TOKEN_EXPIRES_AT] ?: 0L
+            val expiresAt = prefs[SESSION_EXPIRES_AT] ?: prefs[TOKEN_EXPIRES_AT] ?: 0L
             !token.isNullOrEmpty() && System.currentTimeMillis() < expiresAt
         }
 
@@ -105,7 +130,8 @@ class PreferencesManager @Inject constructor(
         .map { prefs ->
             val token = prefs[ACCESS_TOKEN]
             val passwordRequired = prefs[PASSWORD_REQUIRED] ?: false
-            !token.isNullOrBlank() && !passwordRequired
+            val expiresAt = prefs[SESSION_EXPIRES_AT] ?: prefs[TOKEN_EXPIRES_AT] ?: 0L
+            !token.isNullOrBlank() && !passwordRequired && System.currentTimeMillis() < expiresAt
         }
 
     val selectedVin: Flow<String?> = dataStore.data
@@ -136,9 +162,29 @@ class PreferencesManager @Inject constructor(
         .catch { if (it is IOException) emit(emptyPreferences()) else throw it }
         .map { it[BIOMETRIC_ENABLED] ?: false }
 
+    val biometricUnlockMode: Flow<String> = dataStore.data
+        .catch { if (it is IOException) emit(emptyPreferences()) else throw it }
+        .map { it[BIOMETRIC_UNLOCK_MODE] ?: "APP_OPEN" }
+
     val lastBiometricUnlockAt: Flow<Long> = dataStore.data
         .catch { if (it is IOException) emit(emptyPreferences()) else throw it }
         .map { it[LAST_BIOMETRIC_UNLOCK_AT] ?: 0L }
+
+    val walkAwayLockEnabled: Flow<Boolean> = dataStore.data
+        .catch { if (it is IOException) emit(emptyPreferences()) else throw it }
+        .map { it[WALK_AWAY_LOCK_ENABLED] ?: false }
+
+    val walkAwayLockDelaySeconds: Flow<Int> = dataStore.data
+        .catch { if (it is IOException) emit(emptyPreferences()) else throw it }
+        .map { it[WALK_AWAY_LOCK_DELAY_SECONDS] ?: 60 }
+
+    val walkAwayBluetoothAddress: Flow<String?> = dataStore.data
+        .catch { if (it is IOException) emit(emptyPreferences()) else throw it }
+        .map { it[WALK_AWAY_BLUETOOTH_ADDRESS] }
+
+    val walkAwayBluetoothName: Flow<String?> = dataStore.data
+        .catch { if (it is IOException) emit(emptyPreferences()) else throw it }
+        .map { it[WALK_AWAY_BLUETOOTH_NAME] }
 
     val defaultClimateTemp: Flow<String> = dataStore.data
         .catch { if (it is IOException) emit(emptyPreferences()) else throw it }
@@ -219,6 +265,15 @@ class PreferencesManager @Inject constructor(
         return generated
     }
 
+    suspend fun getStoredEuDeviceId(): String? = dataStore.data.first()[EU_DEVICE_ID]
+
+    suspend fun getStoredEuDeviceId(region: String): String? {
+        val prefs = dataStore.data.first()
+        val id = prefs[EU_DEVICE_ID]
+        val storedRegion = prefs[EU_DEVICE_REGION]
+        return if (!id.isNullOrBlank() && storedRegion == region) id else null
+    }
+
     suspend fun getOrCreateEuDeviceId(): String {
         val existing = dataStore.data.first()[EU_DEVICE_ID]
         if (!existing.isNullOrBlank()) return existing
@@ -226,6 +281,19 @@ class PreferencesManager @Inject constructor(
         val generated = UUID.randomUUID().toString()
         dataStore.edit { prefs -> prefs[EU_DEVICE_ID] = generated }
         return generated
+    }
+
+    suspend fun setEuDeviceId(deviceId: String) {
+        if (deviceId.isBlank()) return
+        dataStore.edit { prefs -> prefs[EU_DEVICE_ID] = deviceId }
+    }
+
+    suspend fun setEuDeviceId(deviceId: String, region: String) {
+        if (deviceId.isBlank()) return
+        dataStore.edit { prefs ->
+            prefs[EU_DEVICE_ID] = deviceId
+            prefs[EU_DEVICE_REGION] = region
+        }
     }
 
     suspend fun getOrCreateAuDeviceId(): String {
@@ -244,11 +312,15 @@ class PreferencesManager @Inject constructor(
 
     suspend fun saveSession(accessToken: String, refreshToken: String, username: String, expiresIn: Int, servicePin: String? = null) {
         dataStore.edit { prefs ->
+            val now = System.currentTimeMillis()
+            val tokenExpiresAt = now + (expiresIn.coerceAtLeast(60) * 1000L)
+            val stayLoggedIn = prefs[STAY_LOGGED_IN_30_DAYS] ?: false
             prefs[ACCESS_TOKEN] = accessToken
             prefs[REFRESH_TOKEN] = refreshToken
             prefs[USERNAME] = username
             if (!servicePin.isNullOrBlank()) prefs[SERVICE_PIN] = servicePin
-            prefs[TOKEN_EXPIRES_AT] = System.currentTimeMillis() + (expiresIn * 1000L)
+            prefs[TOKEN_EXPIRES_AT] = tokenExpiresAt
+            prefs[SESSION_EXPIRES_AT] = if (stayLoggedIn) now + THIRTY_DAYS_MS else tokenExpiresAt
             prefs[PASSWORD_REQUIRED] = false
         }
     }
@@ -260,6 +332,7 @@ class PreferencesManager @Inject constructor(
             prefs.remove(USERNAME)
             prefs.remove(SERVICE_PIN)
             prefs.remove(TOKEN_EXPIRES_AT)
+            prefs.remove(SESSION_EXPIRES_AT)
             prefs[PASSWORD_REQUIRED] = requirePassword
         }
     }
@@ -294,6 +367,21 @@ class PreferencesManager @Inject constructor(
         dataStore.edit { it[TIME_FORMAT] = format }
     }
 
+    suspend fun setStayLoggedIn30Days(enabled: Boolean) {
+        dataStore.edit { prefs ->
+            prefs[STAY_LOGGED_IN_30_DAYS] = enabled
+            val token = prefs[ACCESS_TOKEN]
+            if (!token.isNullOrBlank()) {
+                val tokenExpiresAt = prefs[TOKEN_EXPIRES_AT] ?: 0L
+                prefs[SESSION_EXPIRES_AT] = if (enabled) {
+                    System.currentTimeMillis() + THIRTY_DAYS_MS
+                } else {
+                    tokenExpiresAt
+                }
+            }
+        }
+    }
+
     suspend fun setBiometricEnabled(enabled: Boolean) {
         dataStore.edit { prefs ->
             prefs[BIOMETRIC_ENABLED] = enabled
@@ -301,9 +389,40 @@ class PreferencesManager @Inject constructor(
         }
     }
 
+    suspend fun setBiometricUnlockMode(mode: String) {
+        val normalized = when (mode) {
+            "APP_OPEN", "DAILY", "COMMANDS_ONLY", "NEVER" -> mode
+            else -> "APP_OPEN"
+        }
+        dataStore.edit { prefs -> prefs[BIOMETRIC_UNLOCK_MODE] = normalized }
+    }
+
     suspend fun setLastBiometricUnlockAt(timestamp: Long) {
         dataStore.edit { prefs ->
             if (timestamp > 0L) prefs[LAST_BIOMETRIC_UNLOCK_AT] = timestamp else prefs.remove(LAST_BIOMETRIC_UNLOCK_AT)
+        }
+    }
+
+    suspend fun setWalkAwayLockEnabled(enabled: Boolean) {
+        dataStore.edit { prefs -> prefs[WALK_AWAY_LOCK_ENABLED] = enabled }
+    }
+
+    suspend fun setWalkAwayLockDelaySeconds(seconds: Int) {
+        dataStore.edit { prefs -> prefs[WALK_AWAY_LOCK_DELAY_SECONDS] = if (seconds == 30) 30 else 60 }
+    }
+
+    suspend fun setWalkAwayBluetoothDevice(name: String, address: String) {
+        dataStore.edit { prefs ->
+            prefs[WALK_AWAY_BLUETOOTH_NAME] = name.ifBlank { "Vehicle Bluetooth" }
+            prefs[WALK_AWAY_BLUETOOTH_ADDRESS] = address
+        }
+    }
+
+    suspend fun clearWalkAwayBluetoothDevice() {
+        dataStore.edit { prefs ->
+            prefs.remove(WALK_AWAY_BLUETOOTH_NAME)
+            prefs.remove(WALK_AWAY_BLUETOOTH_ADDRESS)
+            prefs[WALK_AWAY_LOCK_ENABLED] = false
         }
     }
 

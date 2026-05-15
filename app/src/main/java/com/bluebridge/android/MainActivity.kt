@@ -43,6 +43,15 @@ import com.bluebridge.android.viewmodel.VehicleViewModel
 import dagger.hilt.android.AndroidEntryPoint
 
 private const val BIOMETRIC_REAUTH_GRACE_PERIOD_MS = 5 * 60 * 1000L
+private const val BIOMETRIC_DAILY_GRACE_PERIOD_MS = 24 * 60 * 60 * 1000L
+
+private fun biometricPromptWindowMs(mode: String): Long = when (mode) {
+    "DAILY" -> BIOMETRIC_DAILY_GRACE_PERIOD_MS
+    "APP_OPEN" -> BIOMETRIC_REAUTH_GRACE_PERIOD_MS
+    else -> Long.MAX_VALUE
+}
+
+private fun biometricPromptsOnAppOpen(mode: String): Boolean = mode == "APP_OPEN" || mode == "DAILY"
 
 @AndroidEntryPoint
 class MainActivity : FragmentActivity() {
@@ -62,10 +71,13 @@ class MainActivity : FragmentActivity() {
             val appTheme by settingsViewModel.appTheme.collectAsStateWithLifecycle()
             val uiColorOverrides by settingsViewModel.uiColorOverrides.collectAsStateWithLifecycle()
             val biometricEnabled by settingsViewModel.biometricEnabled.collectAsStateWithLifecycle()
+            val biometricUnlockMode by settingsViewModel.biometricUnlockMode.collectAsStateWithLifecycle()
             val persistedLastBiometricUnlockAt by settingsViewModel.lastBiometricUnlockAt.collectAsStateWithLifecycle()
+            val shouldPromptOnAppOpen = biometricEnabled && biometricPromptsOnAppOpen(biometricUnlockMode)
+            val biometricWindowMs = biometricPromptWindowMs(biometricUnlockMode)
             val biometricGateReady = !biometricEnabled || persistedLastBiometricUnlockAt >= 0L
-            val persistedBiometricSessionActive = persistedLastBiometricUnlockAt > 0L &&
-                System.currentTimeMillis() - persistedLastBiometricUnlockAt <= BIOMETRIC_REAUTH_GRACE_PERIOD_MS
+            val persistedBiometricSessionActive = shouldPromptOnAppOpen && persistedLastBiometricUnlockAt > 0L &&
+                System.currentTimeMillis() - persistedLastBiometricUnlockAt <= biometricWindowMs
 
             var biometricUnlocked by rememberSaveable { mutableStateOf(false) }
             var biometricReauthInProgress by rememberSaveable { mutableStateOf(false) }
@@ -74,11 +86,11 @@ class MainActivity : FragmentActivity() {
             val navController = rememberNavController()
 
             splashScreen.setKeepOnScreenCondition {
-                isLoggedIn == null || (isLoggedIn == true && !biometricGateReady)
+                isLoggedIn == null || (isLoggedIn == true && shouldPromptOnAppOpen && !biometricGateReady)
             }
 
-            LaunchedEffect(biometricEnabled, persistedLastBiometricUnlockAt) {
-                if (!biometricEnabled) {
+            LaunchedEffect(biometricEnabled, biometricUnlockMode, persistedLastBiometricUnlockAt) {
+                if (!shouldPromptOnAppOpen) {
                     biometricUnlocked = false
                     lastBiometricUnlockAt = 0L
                     return@LaunchedEffect
@@ -90,7 +102,7 @@ class MainActivity : FragmentActivity() {
                 }
             }
 
-            DisposableEffect(Unit) {
+            DisposableEffect(isLoggedIn, shouldPromptOnAppOpen, biometricUnlocked, persistedBiometricSessionActive, biometricWindowMs, biometricEnabled) {
                 val observer = LifecycleEventObserver { _, event ->
                     when (event) {
                         Lifecycle.Event.ON_STOP -> {
@@ -106,10 +118,16 @@ class MainActivity : FragmentActivity() {
                                 biometricEnabled &&
                                 biometricUnlocked &&
                                 backgroundedAt > 0L &&
-                                timeAway > BIOMETRIC_REAUTH_GRACE_PERIOD_MS &&
-                                unlockAge > BIOMETRIC_REAUTH_GRACE_PERIOD_MS
+                                shouldPromptOnAppOpen &&
+                                timeAway > biometricWindowMs &&
+                                unlockAge > biometricWindowMs
                             ) {
                                 biometricUnlocked = false
+                            }
+
+                            val appUnlockedForRefresh = !shouldPromptOnAppOpen || biometricUnlocked || persistedBiometricSessionActive
+                            if (isLoggedIn == true && appUnlockedForRefresh) {
+                                vehicleViewModel.refreshSessionSnapshotOnAppOpen()
                             }
                         }
 
@@ -124,6 +142,7 @@ class MainActivity : FragmentActivity() {
             LaunchedEffect(
                 isLoggedIn,
                 biometricEnabled,
+                biometricUnlockMode,
                 biometricUnlocked,
                 biometricSessionRecoveryAvailable,
                 biometricReauthInProgress,
@@ -141,11 +160,11 @@ class MainActivity : FragmentActivity() {
                 when (isLoggedIn) {
                     true -> {
                         biometricReauthInProgress = false
-                        if (!biometricGateReady) {
+                        if (shouldPromptOnAppOpen && !biometricGateReady) {
                             return@LaunchedEffect
                         }
 
-                        if (biometricEnabled && !biometricUnlocked && !persistedBiometricSessionActive) {
+                        if (shouldPromptOnAppOpen && !biometricUnlocked && !persistedBiometricSessionActive) {
                             navigateRoot("biometric_unlock")
                         } else {
                             navigateRoot("dashboard")
@@ -172,7 +191,7 @@ class MainActivity : FragmentActivity() {
                         NavHost(
                             navController = navController,
                             startDestination = when {
-                                isLoggedIn == true && biometricEnabled && !biometricUnlocked && !persistedBiometricSessionActive -> "biometric_unlock"
+                                isLoggedIn == true && shouldPromptOnAppOpen && !biometricUnlocked && !persistedBiometricSessionActive -> "biometric_unlock"
                                 isLoggedIn == true -> "dashboard"
                                 biometricSessionRecoveryAvailable -> "biometric_unlock"
                                 else -> "login"

@@ -1,5 +1,6 @@
 package com.bluebridge.android.data.api
 
+import com.google.gson.JsonObject
 import com.bluebridge.android.data.models.*
 import okhttp3.ResponseBody
 import retrofit2.Response
@@ -318,6 +319,27 @@ interface BluelinkApiService {
         @Header("offset") offset: String = "-4",
         @Header("Host") host: String = BluelinkConstants.API_HOST
     ): Response<ChargeTargetResponse>
+
+    @POST("ac/v2/evc/charge/reserv/set")
+    suspend fun setChargeSchedule(
+        @Header("access_token") accessToken: String,
+        @Header("client_id") clientId: String = BluelinkConstants.CLIENT_ID,
+        @Header("username") username: String,
+        @Header("vin") vin: String,
+        @Header("APPCLOUD-VIN") appCloudVin: String,
+        @Header("bluelinkservicepin") servicePin: String = "",
+        @Header("registrationId") registrationId: String = "",
+        @Header("gen") gen: String = "3",
+        @Header("brandIndicator") brandIndicator: String = "H",
+        @Header("User-Agent") userAgent: String = "okhttp/3.12.0",
+        @Header("Language") language: String = "0",
+        @Header("to") to: String = "ISS",
+        @Header("from") from: String = "SPA",
+        @Header("encryptFlag") encryptFlag: String = "false",
+        @Header("offset") offset: String = "-4",
+        @Header("Host") host: String = BluelinkConstants.API_HOST,
+        @Body request: JsonObject
+    ): Response<ResponseBody>
 
     @POST("ac/v2/evc/charge/targetsoc/set")
     suspend fun setSpaChargeTargets(

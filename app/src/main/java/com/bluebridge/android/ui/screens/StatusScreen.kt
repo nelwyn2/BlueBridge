@@ -215,6 +215,33 @@ fun StatusScreen(
                     }
                 }
 
+                // ─── Fuel / PHEV Gas Range ─────────────────────────────────────
+                if (s.hasFuelTelemetryFor(vehicle)) {
+                    ControlSection(title = if (s.isPlugInHybridStatusFor(vehicle)) "PHEV Fuel" else "Fuel") {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            s.normalizedFuelLevelPercent?.let { fuelLevel ->
+                                StatusRow(
+                                    Icons.Filled.LocalGasStation,
+                                    "Fuel Level",
+                                    "$fuelLevel%",
+                                    if (fuelLevel <= 10 || s.lowFuelLight) WarningAmber else MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                            if (s.fuelRangeMiles > 0.0) {
+                                StatusRow(
+                                    Icons.Filled.Route,
+                                    "Fuel Range",
+                                    formatDistanceFromMiles(s.fuelRangeMiles, distanceUnit),
+                                    MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                            if (s.lowFuelLight) {
+                                StatusRow(Icons.Filled.Warning, "Low Fuel Warning", "On", WarningAmber)
+                            }
+                        }
+                    }
+                }
+
                 // ─── Additional Telemetry / Diagnostics ─────────────────────────
                 ControlSection(title = "Vehicle Telemetry") {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -814,7 +841,7 @@ private fun TireStatusRow(
     val pressureText = psi
         ?.takeIf { it > 0 }
         ?.let { "$it PSI" }
-        ?: "Pressure not reported"
+        ?: "No pressure telemetry"
     StatusRow(
         Icons.Filled.Circle,
         label,

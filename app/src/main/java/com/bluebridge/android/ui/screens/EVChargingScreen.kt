@@ -69,6 +69,7 @@ fun EVChargingScreen(
     var dcTarget by remember(reportedDcTarget) { mutableStateOf((reportedDcTarget ?: 80).toFloat()) }
     var pendingTargetConfirm by remember { mutableStateOf(false) }
 
+
     pendingChargeAction?.let { action ->
         AlertDialog(
             onDismissRequest = { pendingChargeAction = null },
@@ -118,6 +119,7 @@ fun EVChargingScreen(
             }
         )
     }
+
 
     Scaffold(
         topBar = {
@@ -271,6 +273,7 @@ fun EVChargingScreen(
                     }
                 }
             }
+
 
             // ── Charge targets ────────────────────────────────────────────────
             ControlSection(title = "Charge Targets") {

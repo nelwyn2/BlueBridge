@@ -13,8 +13,11 @@ import com.bluebridge.android.data.models.CommandHistoryEntry
 import com.bluebridge.android.data.models.Vehicle
 import com.bluebridge.android.data.models.VehicleStatusData
 import com.bluebridge.android.data.models.WidgetVehicleSnapshot
+import com.bluebridge.android.data.models.hasFuelTelemetryFor
+import com.bluebridge.android.data.models.totalRangeMilesFor
 import com.bluebridge.android.data.repository.PreferencesManager
 import com.bluebridge.android.data.repository.Result
+import com.bluebridge.android.data.repository.SecureCredentialsManager
 import com.bluebridge.android.data.repository.VehicleRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -448,7 +451,7 @@ open class VehicleWidgetProvider : AppWidgetProvider() {
 
         private suspend fun handleWidgetAction(context: Context, action: String) {
             val preferencesManager = PreferencesManager(context.applicationContext)
-            val repository = VehicleRepository(preferencesManager)
+            val repository = VehicleRepository(preferencesManager, SecureCredentialsManager(context.applicationContext))
             val actionLabel = when (action) {
                 ACTION_REFRESH -> "Widget refresh"
                 ACTION_LOCK -> "Widget lock"
@@ -588,13 +591,12 @@ open class VehicleWidgetProvider : AppWidgetProvider() {
         private fun statusToSnapshot(vehicle: Vehicle, status: VehicleStatusData, message: String): WidgetVehicleSnapshot {
             val evStatus = status.evStatus
             val batteryPercent = evStatus?.batteryStatus?.takeIf { it > 0 }
-                ?: status.battery?.batteryLevel?.takeIf { it > 0 }
-            val rangeMiles = evStatus?.rangeMiles?.takeIf { it > 0.0 }?.roundToInt()
-                ?: status.dte?.value?.takeIf { it > 0.0 }?.roundToInt()
+            val rangeMiles = status.totalRangeMilesFor(vehicle).takeIf { it > 0.0 }?.roundToInt()
             val chargingLabel = when {
                 evStatus?.batteryCharge == true -> evStatus.chargingSpeedLabel.takeIf { it != "Unavailable from vehicle status" }
                     ?.let { "Charging · $it" } ?: "Charging"
                 evStatus != null && evStatus.batteryPlugin != 0 -> evStatus.plugStatusLabel
+                status.hasFuelTelemetryFor(vehicle) -> status.normalizedFuelLevelPercent?.let { "Fuel $it%" } ?: "Fuel range"
                 status.airCtrlOn -> "Climate on"
                 else -> "All Systems Normal"
             }

@@ -116,6 +116,7 @@ class VehicleViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
+            restoreCachedSelectedVehicle()
             loadVehicles()
             val defaultTemp = preferencesManager.defaultClimateTemp.first()
             _remoteStartSettings.value = _remoteStartSettings.value.copy(tempF = defaultTemp)
@@ -131,6 +132,24 @@ class VehicleViewModel @Inject constructor(
     }
 
     // ─── Load vehicles ─────────────────────────────────────────────────────────
+    private suspend fun restoreCachedSelectedVehicle() {
+        if (_selectedVehicle.value != null) return
+        val snapshot = preferencesManager.widgetVehicleSnapshot.first()
+        if (snapshot.vehicleVin.isBlank()) return
+        val cachedVehicle = Vehicle(
+            vin = snapshot.vehicleVin,
+            vehicleIdentifier = snapshot.vehicleId.ifBlank { snapshot.registrationId },
+            enrollmentId = snapshot.vehicleId.ifBlank { snapshot.registrationId },
+            regId = snapshot.registrationId.ifBlank { snapshot.vehicleId },
+            generation = snapshot.generation,
+            nickname = snapshot.vehicleName.takeIf { it != "BlueBridge" }.orEmpty(),
+            modelCode = snapshot.modelCode,
+            modelName = snapshot.vehicleName.takeIf { it != "BlueBridge" }.orEmpty(),
+            brandIndicator = snapshot.brandIndicator
+        )
+        _selectedVehicle.value = cachedVehicle
+    }
+
     fun loadVehicles() {
         viewModelScope.launch {
             when (val result = repository.getVehicles()) {
@@ -169,6 +188,18 @@ class VehicleViewModel @Inject constructor(
     }
 
     // ─── Status refresh ────────────────────────────────────────────────────────
+    fun refreshSessionSnapshotOnAppOpen() {
+        viewModelScope.launch {
+            // Re-validate the persisted session and pull current vehicle/status data after the app is reopened.
+            // This prevents a valid-looking local session from displaying stale or empty vehicle data.
+            loadVehicles()
+            delay(750)
+            _selectedVehicle.value?.let { selected ->
+                refreshStatusInternal(vehicle = selected, forceFromServer = true, showLoading = false)
+            }
+        }
+    }
+
     fun refreshStatus(forceFromServer: Boolean = true) {
         val vehicle = _selectedVehicle.value ?: return
         viewModelScope.launch {
@@ -317,6 +348,14 @@ class VehicleViewModel @Inject constructor(
     }
 
 
+
+    private fun formatScheduleHistoryTime(raw: String): String {
+        val digits = raw.filter { it.isDigit() }.padStart(4, '0').takeLast(4)
+        val hour = digits.take(2).toIntOrNull() ?: return raw
+        val minute = digits.takeLast(2).toIntOrNull() ?: 0
+        return "%02d:%02d".format(java.util.Locale.US, hour.coerceIn(0, 23), minute.coerceIn(0, 59))
+    }
+
     private fun formatClimateHistoryTemp(tempF: String): String {
         val fahrenheit = tempF.toIntOrNull() ?: return "${tempF}°F"
         return if (temperatureUnit.value.equals("C", ignoreCase = true)) {
@@ -418,6 +457,145 @@ class VehicleViewModel @Inject constructor(
             generation = vehicle.generation,
             brandIndicator = vehicle.brandIndicator
         )
+    }
+
+
+    fun setChargingSchedule(
+        chargeStartTime: String,
+        chargeEndTime: String,
+        offPeakStartTime: String,
+        offPeakEndTime: String,
+        offPeakOnly: Boolean
+    ) {
+        viewModelScope.launch {
+            val vehicle = _selectedVehicle.value
+            if (vehicle == null) {
+                _commandState.value = CommandState(CommandStatus.ERROR, "Set charging schedule failed", "No vehicle selected")
+                return@launch
+            }
+            _commandState.value = CommandState(
+                status = CommandStatus.LOADING,
+                message = "Sending charging schedule…",
+                detail = "Sending request to Hyundai…"
+            )
+            preferencesManager.setWidgetMessage("Sending charging schedule")
+            VehicleWidgetProvider.refreshAll(appContext)
+
+            val requestedDetail = "Charge ${formatScheduleHistoryTime(chargeStartTime)}-${formatScheduleHistoryTime(chargeEndTime)} · Off-peak ${formatScheduleHistoryTime(offPeakStartTime)}-${formatScheduleHistoryTime(offPeakEndTime)}"
+            when (val result = repository.setChargingSchedule(
+                vin = vehicle.vin,
+                chargeStartTime = chargeStartTime,
+                chargeEndTime = chargeEndTime,
+                offPeakStartTime = offPeakStartTime,
+                offPeakEndTime = offPeakEndTime,
+                offPeakOnly = offPeakOnly,
+                registrationId = vehicle.regId,
+                generation = vehicle.generation,
+                brandIndicator = vehicle.brandIndicator,
+                vehicleId = vehicle.enrollmentId.ifBlank { vehicle.vehicleIdentifier.ifBlank { vehicle.regId } }
+            )) {
+                is Result.Success -> {
+                    _commandState.value = CommandState(
+                        status = CommandStatus.REFRESHING,
+                        message = "Schedule request accepted",
+                        detail = "Refreshing vehicle status to verify the change…"
+                    )
+                    delay(1200)
+                    when (val refreshResult = refreshStatusInternal(vehicle, forceFromServer = true, showLoading = false)) {
+                        is Result.Success -> {
+                            val verification = verifyChargingScheduleApplied(
+                                refreshResult.data,
+                                chargeStartTime,
+                                chargeEndTime,
+                                offPeakStartTime,
+                                offPeakEndTime,
+                                offPeakOnly
+                            )
+                            if (verification == null) {
+                                _commandState.value = CommandState(
+                                    status = CommandStatus.SUCCESS,
+                                    message = "Charging schedule updated",
+                                    detail = requestedDetail
+                                )
+                                addCommandHistory("Set charging schedule", requestedDetail, true)
+                            } else {
+                                _commandState.value = CommandState(
+                                    status = CommandStatus.ERROR,
+                                    message = "Schedule was not applied",
+                                    detail = verification
+                                )
+                                addCommandHistory("Set charging schedule", "Backend accepted request, but status did not match. $requestedDetail", false)
+                            }
+                        }
+                        is Result.Error -> {
+                            _commandState.value = CommandState(
+                                status = CommandStatus.ERROR,
+                                message = "Could not verify schedule",
+                                detail = "Hyundai accepted the request, but status refresh failed: ${refreshResult.message}"
+                            )
+                            addCommandHistory("Set charging schedule", "Accepted but not verified. $requestedDetail", false)
+                        }
+                        else -> Unit
+                    }
+                    delay(4500)
+                    _commandState.value = CommandState()
+                }
+                is Result.Error -> {
+                    _commandState.value = CommandState(
+                        status = CommandStatus.ERROR,
+                        message = "Set charging schedule failed",
+                        detail = result.message
+                    )
+                    addCommandHistory("Set charging schedule", result.message, false)
+                }
+                else -> Unit
+            }
+        }
+    }
+
+    private fun verifyChargingScheduleApplied(
+        status: VehicleStatusData,
+        chargeStartTime: String,
+        chargeEndTime: String,
+        offPeakStartTime: String,
+        offPeakEndTime: String,
+        offPeakOnly: Boolean
+    ): String? {
+        val reserv = status.evStatus?.reservChargeInfos
+            ?: return "The refreshed status did not include charging schedule data. The request may not be supported for this vehicle/region."
+        val expectedChargeStart = normalizeScheduleDigits(chargeStartTime)
+        val expectedChargeEnd = normalizeScheduleDigits(chargeEndTime)
+        val expectedOffPeakStart = normalizeScheduleDigits(offPeakStartTime)
+        val expectedOffPeakEnd = normalizeScheduleDigits(offPeakEndTime)
+
+        val actualChargeStart = normalizeScheduleDigits(
+            reserv.chargeWindow?.start?.time?.time ?: reserv.reservChargeInfo?.reservInfo?.time?.time.orEmpty()
+        )
+        val actualChargeEnd = normalizeScheduleDigits(
+            reserv.chargeWindow?.end?.time?.time ?: reserv.reserveChargeInfo2?.reservInfo?.time?.time.orEmpty()
+        )
+        val actualOffPeakStart = normalizeScheduleDigits(reserv.offPeakPowerInfo?.offPeakPowerTime1?.startTime?.time.orEmpty())
+        val actualOffPeakEnd = normalizeScheduleDigits(reserv.offPeakPowerInfo?.offPeakPowerTime1?.endTime?.time.orEmpty())
+        val actualOffPeakOnly = reserv.offPeakPowerInfo?.offPeakPowerFlag == 1
+
+        val mismatches = mutableListOf<String>()
+        if (actualChargeStart != expectedChargeStart) mismatches += "charge start stayed ${formatScheduleHistoryTime(actualChargeStart)}"
+        if (actualChargeEnd.isNotBlank() && actualChargeEnd != expectedChargeEnd) mismatches += "charge end stayed ${formatScheduleHistoryTime(actualChargeEnd)}"
+        if (actualOffPeakStart != expectedOffPeakStart) mismatches += "off-peak start stayed ${formatScheduleHistoryTime(actualOffPeakStart)}"
+        if (actualOffPeakEnd != expectedOffPeakEnd) mismatches += "off-peak end stayed ${formatScheduleHistoryTime(actualOffPeakEnd)}"
+        if (actualOffPeakOnly != offPeakOnly) mismatches += "off-peak mode stayed ${if (actualOffPeakOnly) "Only" else "Priority/disabled"}"
+
+        return if (mismatches.isEmpty()) null else "Hyundai returned success, but refreshed status did not match: ${mismatches.joinToString("; ")}."
+    }
+
+    private fun normalizeScheduleDigits(raw: String): String {
+        val digits = raw.filter { it.isDigit() }
+        if (digits.isBlank()) return ""
+        val padded = if (digits.length >= 4) digits.takeLast(4) else digits.padStart(4, '0')
+        val hour = padded.take(2).toIntOrNull() ?: return ""
+        val minute = padded.takeLast(2).toIntOrNull() ?: return ""
+        if (hour !in 0..23 || minute !in 0..59) return ""
+        return "%02d%02d".format(java.util.Locale.US, hour, minute)
     }
 
     // ─── Horn / Lights ─────────────────────────────────────────────────────────
@@ -556,6 +734,7 @@ class VehicleViewModel @Inject constructor(
         loadingMsg: String,
         successMsg: String,
         historyDetail: String = "",
+        forceRefreshAfterCommand: Boolean = false,
         action: suspend () -> Result<Unit>
     ) {
         viewModelScope.launch {
@@ -584,7 +763,7 @@ class VehicleViewModel @Inject constructor(
                             message = "Waiting for vehicle update…",
                             detail = "Refreshing status after command"
                         )
-                        when (val refreshResult = refreshStatusInternal(selected, forceFromServer = false, showLoading = false)) {
+                        when (val refreshResult = refreshStatusInternal(selected, forceFromServer = forceRefreshAfterCommand, showLoading = false)) {
                             is Result.Success -> _commandState.value = CommandState(
                                 status = CommandStatus.SUCCESS,
                                 message = successMsg,
@@ -638,13 +817,12 @@ class VehicleViewModel @Inject constructor(
     private suspend fun cacheStatusForWidget(vehicle: Vehicle, status: VehicleStatusData, message: String) {
         val evStatus = status.evStatus
         val batteryPercent = evStatus?.batteryStatus?.takeIf { it > 0 }
-            ?: status.battery?.batteryLevel?.takeIf { it > 0 }
-        val rangeMiles = evStatus?.rangeMiles?.takeIf { it > 0.0 }?.roundToInt()
-            ?: status.dte?.value?.takeIf { it > 0.0 }?.roundToInt()
+        val rangeMiles = status.totalRangeMilesFor(vehicle).takeIf { it > 0.0 }?.roundToInt()
         val chargingLabel = when {
             evStatus?.batteryCharge == true -> evStatus.chargingSpeedLabel.takeIf { it != "Unavailable from vehicle status" }
                 ?.let { "Charging · $it" } ?: "Charging"
             evStatus != null && evStatus.batteryPlugin != 0 -> evStatus.plugStatusLabel
+            status.hasFuelTelemetryFor(vehicle) -> status.normalizedFuelLevelPercent?.let { "Fuel $it%" } ?: "Fuel range"
             status.airCtrlOn -> "Climate on"
             else -> "All Systems Normal"
         }

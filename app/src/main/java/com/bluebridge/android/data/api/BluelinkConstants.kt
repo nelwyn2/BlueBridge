@@ -16,6 +16,9 @@ object BluelinkConstants {
     const val BASE_URL_EU_HYUNDAI = "https://prd.eu-ccapi.hyundai.com:8080/"
     const val BASE_URL_EU_KIA = "https://prd.eu-ccapi.kia.com:8080/"
     const val BASE_URL_EU_GENESIS = "https://prd-eu-ccapi.genesis.com/"
+    const val IDP_URL_EU_HYUNDAI = "https://idpconnect-eu.hyundai.com/"
+    const val IDP_URL_EU_KIA = "https://idpconnect-eu.kia.com/"
+    const val IDP_URL_EU_GENESIS = "https://idpconnect-eu.genesis.com/"
     const val BASE_URL_AU_HYUNDAI = "https://au-apigw.ccs.hyundai.com.au:8080/"
     const val BASE_URL_AU_KIA = "https://au-apigw.ccs.kia.com.au:8082/"
     const val BASE_URL_NZ_KIA = "https://au-apigw.ccs.kia.com.au:8082/"
@@ -80,6 +83,10 @@ enum class Region(
     val euServiceId: String = "",
     val euAppId: String = "",
     val euBasicAuthorization: String = "",
+    val euClientSecret: String = "",
+    val euIdentityBaseUrl: String = "",
+    val euCfbBase64: String = "",
+    val euPushType: String = "GCM",
     val isAustralia: Boolean = false,
     val auHost: String = "",
     val auServiceId: String = "",
@@ -99,7 +106,11 @@ enum class Region(
         euHost = "prd.eu-ccapi.hyundai.com",
         euServiceId = "6d477c38-3ca4-4cf3-9557-2a1929a94654",
         euAppId = "014d2225-8495-4735-812d-2616334fd15d",
-        euBasicAuthorization = "Basic NmQ0NzdjMzgtM2NhNC00Y2YzLTk1NTctMmExOTI5YTk0NjU0OktVeTQ5WHhQekxwTHVvSzB4aEJDNzdXNlZYaG10UVI5aVFobUlGampvWTRJcHhzVg=="
+        euBasicAuthorization = "Basic NmQ0NzdjMzgtM2NhNC00Y2YzLTk1NTctMmExOTI5YTk0NjU0OktVeTQ5WHhQekxwTHVvSzB4aEJDNzdXNlZYaG10UVI5aVFobUlGampvWTRJcHhzVg==",
+        euClientSecret = "KUy49XxPzLpLuoK0xhBC77W6VXhmtQR9iQhmIFjjoY4IpxsV",
+        euIdentityBaseUrl = BluelinkConstants.IDP_URL_EU_HYUNDAI,
+        euCfbBase64 = "RFtoRq/vDXJmRndoZaZQyfOot7OrIqGVFj96iY2WL3yyH5Z/pUvlUhqmCxD2t+D65SQ=",
+        euPushType = "GCM"
     ),
     EU_KIA(
         BluelinkConstants.BASE_URL_EU_KIA,
@@ -108,7 +119,11 @@ enum class Region(
         euHost = "prd.eu-ccapi.kia.com",
         euServiceId = "fdc85c00-0a2f-4c64-bcb4-2cfb1500730a",
         euAppId = "a2b8469b-30a3-4361-8e13-6fceea8fbe74",
-        euBasicAuthorization = "Basic ZmRjODVjMDAtMGEyZi00YzY0LWJjYjQtMmNmYjE1MDA3MzBhOnNlY3JldA=="
+        euBasicAuthorization = "Basic ZmRjODVjMDAtMGEyZi00YzY0LWJjYjQtMmNmYjE1MDA3MzBhOnNlY3JldA==",
+        euClientSecret = "secret",
+        euIdentityBaseUrl = BluelinkConstants.IDP_URL_EU_KIA,
+        euCfbBase64 = "wLTVxwidmH8CfJYBWSnHD6E0huk0ozdiuygB4hLkM5XCgzAL1Dk5sE36d/bx5PFMbZs=",
+        euPushType = "APNS"
     ),
     EU_GENESIS(
         BluelinkConstants.BASE_URL_EU_GENESIS,
@@ -117,7 +132,11 @@ enum class Region(
         euHost = "prd-eu-ccapi.genesis.com",
         euServiceId = "3020afa2-30ff-412a-aa51-d28fbe901e10",
         euAppId = "f11f2b86-e0e7-4851-90df-5600b01d8b70",
-        euBasicAuthorization = "Basic MzAyMGFmYTItMzBmZi00MTJhLWFhNTEtZDI4ZmJlOTAxZTEwOkZLRGRsZWYyZmZkbGVGRXdlRUxGS0VSaUxFUjJGRUQyMXNEZHdkZ1F6NmhGRVNFMw=="
+        euBasicAuthorization = "Basic MzAyMGFmYTItMzBmZi00MTJhLWFhNTEtZDI4ZmJlOTAxZTEwOkZLRGRsZWYyZmZkbGVGRXdlRUxGS0VSaUxFUjJGRUQyMXNEZHdkZ1F6NmhGRVNFMw==",
+        euClientSecret = "secret",
+        euIdentityBaseUrl = BluelinkConstants.IDP_URL_EU_GENESIS,
+        euCfbBase64 = "RFtoRq/vDXJmRndoZaZQyYo3/qFLtVReW8P7utRPcc0ZxOzOELm9mexvviBk/qqIp4A=",
+        euPushType = "GCM"
     ),
     AU_HYUNDAI(
         BluelinkConstants.BASE_URL_AU_HYUNDAI,

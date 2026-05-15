@@ -84,9 +84,33 @@ data class Vehicle(
 ) {
     val displayName get() = nickname.ifBlank { "$modelYear $modelName" }
     val isHyundai get() = brandIndicator == "H"
-    val isEV get() = modelCode.contains("IONIQ", ignoreCase = true) ||
-            modelCode.contains("EV", ignoreCase = true) ||
-            modelCode.contains("NEXO", ignoreCase = true)
+
+    val powertrainLookupText: String
+        get() = listOf(modelCode, modelName, displayName, hmaModel)
+            .filter { it.isNotBlank() }
+            .joinToString(" ")
+
+    val isPlugInHybrid: Boolean
+        get() = powertrainLookupText.contains("PHEV", ignoreCase = true) ||
+            powertrainLookupText.contains("PLUG-IN", ignoreCase = true) ||
+            powertrainLookupText.contains("PLUG IN", ignoreCase = true) ||
+            powertrainLookupText.contains("PLUGIN", ignoreCase = true)
+
+    val isLikelyPureBatteryElectric: Boolean
+        get() {
+            if (isPlugInHybrid) return false
+            val text = powertrainLookupText
+            return text.contains("IONIQ", ignoreCase = true) ||
+                text.contains("KONA ELECTRIC", ignoreCase = true) ||
+                text.contains("KONA EV", ignoreCase = true) ||
+                text.contains("EV6", ignoreCase = true) ||
+                text.contains("EV 6", ignoreCase = true) ||
+                text.contains("EV9", ignoreCase = true) ||
+                text.contains("EV 9", ignoreCase = true) ||
+                text.contains("NEXO", ignoreCase = true)
+        }
+
+    val isEV get() = isLikelyPureBatteryElectric
 }
 
 data class PackageDetail(
@@ -172,6 +196,19 @@ data class VehicleStatusData(
     @SerializedName("sideBackWindowHeat") val sideBackWindowHeat: Int = 0,
     @SerializedName("steerWheelHeat") val steerWheelHeat: Int = 0,
     @SerializedName("dte") val dte: Dte? = null,
+    @SerializedName(
+        value = "fuelLevel",
+        alternate = [
+            "fuelLevelPercent",
+            "fuelPercent",
+            "fuelPct",
+            "fuelPCT",
+            "gasLevel",
+            "remainFuelRat",
+            "fuelRatio"
+        ]
+    ) val fuelLevelPercent: Double? = null,
+    @SerializedName("lowFuelLight") val lowFuelLight: Boolean = false,
     @SerializedName("battery") val battery: BatteryStatus? = null,
     @SerializedName("evStatus") val evStatus: EVStatus? = null,
     @SerializedName("tirePressureLamp") val tirePressureLamp: TirePressure? = null,
@@ -191,6 +228,53 @@ data class VehicleStatusData(
     val ignitionOn: Boolean
         get() = ignitionStatus.equals("ON", ignoreCase = true) ||
             ignitionStatus.equals("true", ignoreCase = true) || ignitionStatus == "1"
+
+    val normalizedFuelLevelPercent: Int?
+        get() {
+            val raw = fuelLevelPercent ?: dte?.fuelLevelPercent ?: return null
+            val percent = if (raw in 0.0..1.0) raw * 100.0 else raw
+            return percent.toInt().coerceIn(0, 100)
+        }
+
+    val fuelRangeMiles: Double
+        get() = evStatus?.fuelRangeMiles?.takeIf { it > 0.0 }
+            ?: dte?.rangeMiles?.takeIf { it > 0.0 }
+            ?: 0.0
+
+    val totalRangeMiles: Double
+        get() = evStatus?.totalRangeMiles?.takeIf { it > 0.0 }
+            ?: fuelRangeMiles.takeIf { it > 0.0 }
+            ?: evStatus?.rangeMiles?.takeIf { it > 0.0 }
+            ?: 0.0
+
+    val hasFuelTelemetry: Boolean
+        get() = normalizedFuelLevelPercent != null || fuelRangeMiles > 0.0 || lowFuelLight
+
+    val isPlugInHybridStatus: Boolean
+        get() = evStatus != null && hasFuelTelemetry
+}
+
+fun VehicleStatusData.hasFuelTelemetryFor(vehicle: Vehicle?): Boolean {
+    if (!hasFuelTelemetry) return false
+
+    // Some Hyundai/Kia BEV payloads expose placeholder fuel/DTE fields even though the
+    // vehicle has no fuel tank. Treat explicit BEV model identity as authoritative so
+    // IONIQ/Kona Electric/EV6/EV9 dashboards do not show a gas gauge.
+    if (evStatus != null && vehicle?.isLikelyPureBatteryElectric == true && vehicle.isPlugInHybrid.not()) {
+        return false
+    }
+
+    return true
+}
+
+fun VehicleStatusData.isPlugInHybridStatusFor(vehicle: Vehicle?): Boolean =
+    evStatus != null && hasFuelTelemetryFor(vehicle) && vehicle?.isLikelyPureBatteryElectric != true
+
+fun VehicleStatusData.totalRangeMilesFor(vehicle: Vehicle?): Double {
+    if (evStatus != null && vehicle?.isLikelyPureBatteryElectric == true && vehicle.isPlugInHybrid.not()) {
+        return evStatus.rangeMiles.takeIf { it > 0.0 } ?: 0.0
+    }
+    return totalRangeMiles
 }
 
 data class DoorOpenStatus(
@@ -229,6 +313,13 @@ data class Dte(
             val percent = if (raw in 0.0..1.0) raw * 100.0 else raw
             return percent.toInt().coerceIn(0, 100)
         }
+
+    val rangeMiles: Double
+        get() = when (unit) {
+            1 -> value
+            2 -> value * 0.621371
+            else -> value
+        }
 }
 
 data class BatteryStatus(
@@ -261,8 +352,8 @@ data class EVStatus(
     @SerializedName("dischargingLimit") val dischargingLimit: Int = 0
 ) {
     private val rangeValue: RangeValue?
-        get() = drvDistance.firstOrNull()?.rangeByFuel?.totalAvailableRange
-            ?: drvDistance.firstOrNull()?.rangeByFuel?.evModeRange
+        get() = drvDistance.firstOrNull()?.rangeByFuel?.evModeRange
+            ?: drvDistance.firstOrNull()?.rangeByFuel?.totalAvailableRange
 
     /**
      * Hyundai's US EV range payload commonly returns the value in miles even when older
@@ -281,6 +372,38 @@ data class EVStatus(
 
     val rangeKm: Double
         get() = rangeMiles * 1.609344
+
+    val evModeRangeMiles: Double
+        get() {
+            val range = drvDistance.firstOrNull()?.rangeByFuel?.evModeRange ?: return 0.0
+            return when (range.unit) {
+                1 -> range.value
+                2 -> range.value * 0.621371
+                else -> range.value
+            }
+        }
+
+    private val fuelRangeValue: RangeValue?
+        get() = drvDistance.firstOrNull()?.rangeByFuel?.gasModeRange
+
+    val fuelRangeMiles: Double
+        get() {
+            val range = fuelRangeValue ?: return 0.0
+            return when (range.unit) {
+                1 -> range.value
+                2 -> range.value * 0.621371
+                else -> range.value
+            }
+        }
+
+    val totalRangeMiles: Double
+        get() = drvDistance.firstOrNull()?.rangeByFuel?.totalAvailableRange?.let { range ->
+            when (range.unit) {
+                1 -> range.value
+                2 -> range.value * 0.621371
+                else -> range.value
+            }
+        } ?: (evModeRangeMiles + fuelRangeMiles).takeIf { it > 0.0 } ?: 0.0
 
     /**
      * Hyundai's batteryPlugin code is plug type, not simply AC-vs-DC.
@@ -367,7 +490,8 @@ data class DriveDistance(
 
 data class RangeByFuel(
     @SerializedName("totalAvailableRange") val totalAvailableRange: RangeValue? = null,
-    @SerializedName("evModeRange") val evModeRange: RangeValue? = null
+    @SerializedName("evModeRange") val evModeRange: RangeValue? = null,
+    @SerializedName("gasModeRange") val gasModeRange: RangeValue? = null
 )
 
 data class RangeValue(
@@ -558,8 +682,8 @@ data class OffPeakPowerInfo(
 )
 
 data class OffPeakPowerTime(
-    @SerializedName("startTime") val startTime: ScheduleTime? = null,
-    @SerializedName("endTime") val endTime: ScheduleTime? = null
+    @SerializedName(value = "startTime", alternate = ["starttime"]) val startTime: ScheduleTime? = null,
+    @SerializedName(value = "endTime", alternate = ["endtime"]) val endTime: ScheduleTime? = null
 )
 
 

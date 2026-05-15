@@ -1,5 +1,13 @@
 package com.bluebridge.android.ui.screens
 
+import android.Manifest
+import android.bluetooth.BluetoothManager
+import android.content.Context
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -27,6 +35,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.bluebridge.android.automation.WalkAwayBluetoothMonitorService
+import com.bluebridge.android.automation.WalkAwayLockScheduler
 import com.bluebridge.android.data.api.Region
 import com.bluebridge.android.data.models.UiColorOverrides
 import com.bluebridge.android.data.models.UiColorSlot
@@ -48,6 +58,11 @@ fun SettingsScreen(
     val timeZoneMode by viewModel.timeZoneMode.collectAsStateWithLifecycle()
     val timeFormat by viewModel.timeFormat.collectAsStateWithLifecycle()
     val biometricEnabled by viewModel.biometricEnabled.collectAsStateWithLifecycle()
+    val biometricUnlockMode by viewModel.biometricUnlockMode.collectAsStateWithLifecycle()
+    val stayLoggedIn30Days by viewModel.stayLoggedIn30Days.collectAsStateWithLifecycle()
+    val walkAwayLockEnabled by viewModel.walkAwayLockEnabled.collectAsStateWithLifecycle()
+    val walkAwayBluetoothName by viewModel.walkAwayBluetoothName.collectAsStateWithLifecycle()
+    val walkAwayBluetoothAddress by viewModel.walkAwayBluetoothAddress.collectAsStateWithLifecycle()
     val selectedThemeId by viewModel.appTheme.collectAsStateWithLifecycle()
     val uiColorOverrides by viewModel.uiColorOverrides.collectAsStateWithLifecycle()
     val servicePin by viewModel.servicePin.collectAsStateWithLifecycle()
@@ -64,6 +79,40 @@ fun SettingsScreen(
     var editingColorSlot by remember { mutableStateOf<UiColorSlot?>(null) }
     var showPinDialog by remember { mutableStateOf(false) }
     var showLogoutDialog by remember { mutableStateOf(false) }
+    var showBluetoothPicker by remember { mutableStateOf(false) }
+    var bluetoothPermissionMessage by remember { mutableStateOf<String?>(null) }
+    val bluetoothPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { grants ->
+        val bluetoothGranted = Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
+            grants[Manifest.permission.BLUETOOTH_CONNECT] == true ||
+            context.checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED
+        if (bluetoothGranted) {
+            bluetoothPermissionMessage = null
+            showBluetoothPicker = true
+        } else {
+            bluetoothPermissionMessage = "Bluetooth Nearby Devices permission is required for walk-away lock detection."
+        }
+    }
+
+    fun openBluetoothPicker() {
+        val permissions = buildList {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+                context.checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED
+            ) {
+                add(Manifest.permission.BLUETOOTH_CONNECT)
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+            ) {
+                add(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
+        if (permissions.isNotEmpty()) {
+            bluetoothPermissionLauncher.launch(permissions.toTypedArray())
+        } else {
+            bluetoothPermissionMessage = null
+            showBluetoothPicker = true
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -267,6 +316,50 @@ fun SettingsScreen(
 
                     HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f))
 
+                    // Stay logged in
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            modifier = Modifier.weight(1f),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                Icons.Filled.Timer,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    "Stay Logged In for 30 Days",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    "Keep the app session open and refresh supported regional tokens when needed",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+                                )
+                            }
+                        }
+                        Spacer(Modifier.width(12.dp))
+                        Switch(
+                            checked = stayLoggedIn30Days,
+                            onCheckedChange = { viewModel.setStayLoggedIn30Days(it) },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = MaterialTheme.colorScheme.primary,
+                                checkedTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
+                            )
+                        )
+                    }
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f))
+
                     // Biometric
                     Row(
                         modifier = Modifier
@@ -292,7 +385,7 @@ fun SettingsScreen(
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
                                 Text(
-                                    "Unlock BlueBridge and sign in with saved credentials",
+                                    "Control when BlueBridge asks for fingerprint while your account session is valid",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
                                 )
@@ -308,13 +401,147 @@ fun SettingsScreen(
                             )
                         )
                     }
+
+                    AnimatedVisibility(visible = biometricEnabled) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(start = 32.dp, bottom = 8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                "Fingerprint frequency",
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f)
+                            )
+                            FlowRow(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                listOf(
+                                    "APP_OPEN" to "App open",
+                                    "DAILY" to "Once per day",
+                                    "COMMANDS_ONLY" to "Commands only",
+                                    "NEVER" to "Never"
+                                ).forEach { (mode, label) ->
+                                    FilterChip(
+                                        selected = biometricUnlockMode == mode,
+                                        onClick = { viewModel.setBiometricUnlockMode(mode) },
+                                        label = { Text(label) }
+                                    )
+                                }
+                            }
+                            Text(
+                                when (biometricUnlockMode) {
+                                    "DAILY" -> "BlueBridge will suppress app-open fingerprint prompts for 24 hours after a successful unlock, as long as the account session is still valid."
+                                    "COMMANDS_ONLY" -> "BlueBridge will not prompt when opening the app. Use this with the 30-day account session for fewer interruptions."
+                                    "NEVER" -> "BlueBridge will not ask for fingerprint while the account session remains valid."
+                                    else -> "BlueBridge will ask again after it has been in the background for about 5 minutes."
+                                },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f)
+                            )
+                        }
+                    }
+                }
+            }
+
+            // ── Automation ─────────────────────────────────────────────────────
+            ControlSection(title = "Automation") {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            modifier = Modifier.weight(1f),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Filled.Lock, null, tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f), modifier = Modifier.size(20.dp))
+                            Spacer(Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    "Walk-Away Lock",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    if (walkAwayBluetoothAddress.isNullOrBlank()) "Select vehicle Bluetooth first" else "Lock after vehicle Bluetooth disconnects",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+                                )
+                            }
+                        }
+                        Spacer(Modifier.width(12.dp))
+                        Switch(
+                            checked = walkAwayLockEnabled,
+                            onCheckedChange = { enabled ->
+                                if (enabled && (walkAwayBluetoothAddress.isNullOrBlank() ||
+                                        (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+                                            context.checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED)
+                                    )) {
+                                    openBluetoothPicker()
+                                } else {
+                                    viewModel.setWalkAwayLockEnabled(enabled)
+                                    if (enabled) {
+                                        WalkAwayBluetoothMonitorService.start(context)
+                                    } else {
+                                        WalkAwayBluetoothMonitorService.stop(context)
+                                        WalkAwayLockScheduler.cancel(context)
+                                    }
+                                }
+                            },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = MaterialTheme.colorScheme.primary,
+                                checkedTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
+                            )
+                        )
+                    }
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f))
+
+                    SettingsRow(
+                        icon = Icons.Filled.Settings,
+                        label = "Vehicle Bluetooth",
+                        value = walkAwayBluetoothName ?: "Choose device",
+                        onClick = { openBluetoothPicker() }
+                    )
+
+                    bluetoothPermissionMessage?.let { message ->
+                        Text(
+                            message,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.padding(start = 32.dp, end = 8.dp, bottom = 4.dp)
+                        )
+                    }
+
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+                        context.checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED
+                    ) {
+                        Text(
+                            "Walk-away lock is inactive until Android's Nearby Devices permission is granted.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.padding(start = 32.dp, end = 8.dp, bottom = 4.dp)
+                        )
+                    }
+
+                    Text(
+                        "Experimental: Android background limits, phone battery optimization, network connectivity, or Hyundai/Kia API availability can prevent automatic locking. Always verify the vehicle is locked.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
                 }
             }
 
             // ── About ─────────────────────────────────────────────────────────
             ControlSection(title = "About") {
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    SettingsInfoRow("Version", "1.13")
+                    SettingsInfoRow("Version", "1.2")
                     SettingsInfoRow("API", "Hyundai Bluelink / Kia Connect")
                     SettingsInfoRow("Credit", "Nelwyn99")
                     Spacer(Modifier.height(4.dp))
@@ -342,6 +569,71 @@ fun SettingsScreen(
         }
     }
 
+
+    // ── Walk-away Bluetooth picker ───────────────────────────────────────────
+    if (showBluetoothPicker) {
+        val pairedDevices = remember(showBluetoothPicker) { pairedBluetoothDevices(context) }
+        AlertDialog(
+            onDismissRequest = { showBluetoothPicker = false },
+            title = { Text("Choose Vehicle Bluetooth") },
+            text = {
+                Column(
+                    modifier = Modifier
+                        .heightIn(max = 420.dp)
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    if (pairedDevices.isEmpty()) {
+                        Text(
+                            "No paired Bluetooth devices were found. Pair the phone with the vehicle first, then return here.",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    } else {
+                        pairedDevices.forEach { device ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        viewModel.setWalkAwayBluetoothDevice(device.name, device.address)
+                                        viewModel.setWalkAwayLockEnabled(true)
+                                        WalkAwayBluetoothMonitorService.start(context)
+                                        showBluetoothPicker = false
+                                    }
+                                    .padding(vertical = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                RadioButton(
+                                    selected = device.address.equals(walkAwayBluetoothAddress, ignoreCase = true),
+                                    onClick = {
+                                        viewModel.setWalkAwayBluetoothDevice(device.name, device.address)
+                                        viewModel.setWalkAwayLockEnabled(true)
+                                        WalkAwayBluetoothMonitorService.start(context)
+                                        showBluetoothPicker = false
+                                    }
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(device.name, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+                                    Text(device.address, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
+                                }
+                            }
+                            HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f))
+                        }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { showBluetoothPicker = false }) { Text("Done") } },
+            dismissButton = {
+                if (!walkAwayBluetoothAddress.isNullOrBlank()) {
+                    TextButton(onClick = {
+                        viewModel.clearWalkAwayBluetoothDevice()
+                        WalkAwayBluetoothMonitorService.stop(context)
+                        WalkAwayLockScheduler.cancel(context)
+                        showBluetoothPicker = false
+                    }) { Text("Clear") }
+                }
+            }
+        )
+    }
 
     // ── Bluelink PIN dialog ──────────────────────────────────────────────────
     if (showPinDialog) {
@@ -823,6 +1115,33 @@ fun ColorPickerDialog(
     )
 }
 
+
+
+private data class PairedBluetoothDevice(
+    val name: String,
+    val address: String
+)
+
+@Suppress("MissingPermission")
+private fun pairedBluetoothDevices(context: Context): List<PairedBluetoothDevice> {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+        context.checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED
+    ) {
+        return emptyList()
+    }
+    val bluetoothManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
+    val adapter = bluetoothManager?.adapter ?: return emptyList()
+    return adapter.bondedDevices
+        .mapNotNull { device ->
+            val address = device.address ?: return@mapNotNull null
+            PairedBluetoothDevice(
+                name = device.name?.takeIf { it.isNotBlank() } ?: "Bluetooth device",
+                address = address
+            )
+        }
+        .distinctBy { it.address }
+        .sortedBy { it.name.lowercase() }
+}
 
 @Composable
 private fun TimeZoneChip(
